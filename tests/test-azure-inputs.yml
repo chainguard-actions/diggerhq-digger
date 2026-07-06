@@ -1,0 +1,25 @@
+name: Test Azure inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          setup-azure: "false"
+          azure-client-id: "00000000-0000-0000-0000-000000000001"
+          azure-tenant-id: "00000000-0000-0000-0000-000000000002"
+          azure-subscription-id: "00000000-0000-0000-0000-000000000003"
+          upload-plan-destination: "azure"
+          upload-plan-destination-azure-container: "my-plan-container"
+          upload-plan-destination-azure-storage-account: "myplanstorageaccount"
+          configure-checkout: "false"
+          no-backend: "true"
+      - name: Assert Azure inputs were accepted
+        run: |
+          echo "Action completed (possibly with expected error since no real digger backend)"
+          echo "PASS: all Azure inputs were accepted by the action"

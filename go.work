@@ -1,0 +1,23 @@
+go 1.25.0
+
+use (
+	./backend
+	./background/projects-refresh-service
+	./cli
+	./cli_e2e
+	./dgctl
+	./drift
+
+	./ee/backend
+	./ee/cli
+	./ee/drift
+
+	./libs
+
+	./taco/cmd/statesman
+	./taco/cmd/taco
+	./taco/cmd/token_service
+	./taco/internal
+	./taco/pkg/sdk
+	./taco/providers/terraform/opentaco
+)

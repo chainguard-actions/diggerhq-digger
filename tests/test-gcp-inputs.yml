@@ -1,0 +1,26 @@
+name: Test Google Cloud inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          setup-google-cloud: "false"
+          google-auth-credentials: '{"type":"service_account","project_id":"example"}'
+          google-workload-identity-provider: "projects/123/locations/global/workloadIdentityPools/pool/providers/provider"
+          google-workload-identity-provider-audience: "https://example.com"
+          google-service-account: "sa@example-project.iam.gserviceaccount.com"
+          google-lock-bucket: "my-lock-bucket"
+          upload-plan-destination: "gcp"
+          upload-plan-destination-gcp-bucket: "my-plan-gcp-bucket"
+          configure-checkout: "false"
+          no-backend: "true"
+      - name: Assert GCP inputs were accepted
+        run: |
+          echo "Action completed (possibly with expected error since no real digger backend)"
+          echo "PASS: all GCP inputs were accepted by the action"

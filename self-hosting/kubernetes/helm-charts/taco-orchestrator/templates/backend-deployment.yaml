@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "taco-orchestrator.fullname" . }}-web
+  labels:
+    {{- include "taco-orchestrator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.digger.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "taco-orchestrator.name" . }}-web
+  template:
+    metadata:
+      {{- $podAnnotations := mergeOverwrite (dict) (default (dict) .Values.global.podAnnotations) (default (dict) .Values.digger.podAnnotations) }}
+      {{- if $podAnnotations }}
+      annotations:
+        {{- toYaml $podAnnotations | nindent 8 }}
+      {{- end }}
+      labels:
+        app: {{ include "taco-orchestrator.name" . }}-web
+        {{- include "taco-orchestrator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "taco-orchestrator.serviceAccountName" . }}
+      {{- if or .Values.digger.workloadIdentity.enabled (and .Values.digger.cloudSql .Values.digger.cloudSql.enabled) }}
+      automountServiceAccountToken: true
+      volumes:
+        {{- if .Values.digger.workloadIdentity.enabled }}
+        - name: gcp-sts-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: {{ .Values.digger.workloadIdentity.gcpTokenAudience }}
+                  path: token
+                  expirationSeconds: 3600
+        {{- end }}
+        {{- if and .Values.digger.cloudSql .Values.digger.cloudSql.enabled .Values.digger.cloudSql.credentialsSecret }}
+        - name: cloudsql-credentials
+          secret:
+            secretName: {{ .Values.digger.cloudSql.credentialsSecret }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.global }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      containers:
+      - name: web
+        image: "{{ .Values.digger.image.registry | default .Values.global.imageRegistry | default "ghcr.io/diggerhq" }}/{{ .Values.digger.image.repository }}:{{ .Values.digger.image.tag }}"
+        imagePullPolicy: {{ .Values.digger.image.pullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        {{- if .Values.digger.workloadIdentity.enabled }}
+        volumeMounts:
+          - name: gcp-sts-token
+            mountPath: /var/run/secrets/tokens/gcp
+            readOnly: true
+        {{- end }}
+        envFrom:
+        - secretRef:
+            {{- if .Values.digger.secret.useExistingSecret }}
+            name: {{ .Values.digger.secret.existingSecretName }}
+            {{- else }}
+            name: {{ include "taco-orchestrator.fullname" . }}-secret
+            {{- end }}
+        env:
+        {{- if .Values.digger.postgres.existingSecretName }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.digger.postgres.existingSecretName }}
+              key: {{ .Values.digger.postgres.existingSecretKey }}
+        - name: DATABASE_URL
+          value: "postgres://{{ .Values.digger.postgres.user }}:$(POSTGRES_PASSWORD)@{{ .Values.digger.postgres.host }}:{{ .Values.digger.postgres.port }}/{{ .Values.digger.postgres.database }}?sslmode={{ .Values.digger.postgres.sslmode }}"
+        {{- end }}
+        - name: ALLOW_DIRTY
+          value: "{{ .Values.digger.postgres.allowDirty }}"
+        {{- if .Values.digger.workloadIdentity.enabled }}
+        - name: GOOGLE_TOKEN_PATH
+          value: /var/run/secrets/tokens/gcp/token
+        {{- end }}
+        {{- with .Values.digger.customEnv }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.digger.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.digger.livenessProbe | nindent 10 }}
+        {{- end }}
+        {{- if .Values.digger.startupProbe }}
+        startupProbe:
+          {{- toYaml .Values.digger.startupProbe | nindent 10 }}
+        {{- end }}
+        {{- with .Values.digger.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- if and .Values.digger.cloudSql .Values.digger.cloudSql.enabled }}
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          - "--structured-logs"
+          - "--port=5432"
+          - "{{ .Values.digger.cloudSql.instanceConnectionName }}"
+        securityContext:
+          runAsNonRoot: true
+        {{- if .Values.digger.cloudSql.credentialsSecret }}
+        env:
+          - name: GOOGLE_APPLICATION_CREDENTIALS
+            value: /secrets/cloudsql/credentials.json
+        volumeMounts:
+          - name: cloudsql-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
+        {{- end }}
+      {{- end }}
+      {{- with .Values.digger.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.digger.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.digger.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

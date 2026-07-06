@@ -1,0 +1,55 @@
+name: Test Helm Charts
+
+on:
+  pull_request:
+    paths:
+      - 'self-hosting/kubernetes/helm-charts/**'
+      - '.github/workflows/helm-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chart:
+          - digger-backend
+          - taco-orchestrator
+          - taco-statesman
+          - taco-token-service
+          - taco-drift
+          - taco-ui
+          - taco-sidecar
+          - opentaco-platform-reference
+          - opentaco
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+
+      - name: Install helm-unittest
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
+
+      - name: Build chart dependencies (if any)
+        run: |
+          if grep -q "^dependencies:" self-hosting/kubernetes/helm-charts/${{ matrix.chart }}/Chart.yaml; then
+            helm dependency build self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+          fi
+
+      - name: Lint chart
+        run: |
+          helm lint self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+
+      - name: Run unit tests (if present)
+        run: |
+          if [ -d "self-hosting/kubernetes/helm-charts/${{ matrix.chart }}/tests" ]; then
+            helm unittest self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+          else
+            echo "No helm-unittest tests found for ${{ matrix.chart }}, skipping"
+          fi

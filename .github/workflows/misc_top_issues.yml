@@ -1,0 +1,26 @@
+---
+name: Top issues updater
+
+"on":
+  schedule:
+    - cron: "0 * * * *"  # every hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  get-top-issues:
+    if: github.repository_owner == 'diggerhq'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: update-top-issues
+        uses: diggerhq/top-issues@dfcc3b5faeb7bc6bc0d170ae32fd70bbe5f9e3f8 # main
+        with:
+          org_name: diggerhq
+          repo_name: digger
+          issue_number: 1352
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
