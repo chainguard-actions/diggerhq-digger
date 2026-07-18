@@ -1,0 +1,30 @@
+suite: test deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: should create a deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-taco-ui
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should set correct container image
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: "ghcr.io/diggerhq/digger/taco-ui:latest"
+
+  - it: should set environment variables when apiUrl is provided
+    set:
+      ui.env.apiUrl: "http://test-backend:8080"
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: VITE_API_URL
+            value: "http://test-backend:8080"

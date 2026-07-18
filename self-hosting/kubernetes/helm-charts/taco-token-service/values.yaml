@@ -1,0 +1,68 @@
+# values.yaml
+
+tokenService:
+  # Image configuration
+  image:
+    # Optional per-chart registry override. Falls back to global.imageRegistry.
+    registry: ""
+    repository: digger/taco-token-service
+    tag: "v0.1.0"
+    pullPolicy: "IfNotPresent"
+
+  # Number of replicas
+  replicaCount: 1
+
+  # Pod annotations for token-service pods.
+  # These override matching keys from global.podAnnotations.
+  podAnnotations: {}
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8081
+
+  # Database configuration
+  database:
+    # Backend type: "postgres"
+    backend: "postgres"
+
+    # PostgreSQL configuration
+    postgres:
+      host: ""
+      port: 5432
+      user: "token_svc"
+      password: ""
+      dbname: "token_service"
+      sslmode: "disable"
+      # Use Kubernetes secrets for credentials
+      secretName: "token-service-secrets"
+      secretKey: "OPENTACO_TOKEN_POSTGRES_PASSWORD"
+
+  # Secret configuration
+  secret:
+    useExistingSecret: true
+    existingSecretName: "token-service-secrets"
+
+  # Cloud SQL Proxy configuration (for GCP Cloud SQL)
+  cloudSql:
+    enabled: true
+    instanceConnectionName: "YOUR-PROJECT-ID:YOUR-REGION:YOUR-INSTANCE"
+    credentialsSecret: "cloudsql-credentials"
+    serviceAccount: "cloudsql-sa"
+
+  # Resource limits and requests
+  resources: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+# Global configuration (optional)
+global:
+  imagePullSecrets: []
+  podAnnotations: {}

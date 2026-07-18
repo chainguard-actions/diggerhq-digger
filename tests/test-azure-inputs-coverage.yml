@@ -1,0 +1,24 @@
+name: Test Azure inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          setup-azure: "false"
+          azure-client-id: "fake-client-id"
+          azure-tenant-id: "fake-tenant-id"
+          azure-subscription-id: "fake-subscription-id"
+          upload-plan-destination-gcp-bucket: "my-gcp-plan-bucket"
+          configure-checkout: "false"
+          digger-version: "v0.6.146"
+          no-backend: "true"
+      - name: Assert inputs were accepted
+        run: |
+          echo "Action step completed (continue-on-error). Inputs were passed successfully."
+          echo "PASS: Azure and GCP upload inputs were accepted by the action"

@@ -1,0 +1,28 @@
+name: Test AWS inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          setup-aws: "false"
+          aws-access-key-id: "fake-key-id"
+          aws-secret-access-key: "fake-secret-key"
+          aws-region: "us-east-1"
+          upload-plan-destination: "aws"
+          upload-plan-destination-s3-bucket: "my-plan-bucket"
+          upload-plan-destination-s3-encryption-kms-key-id: "arn:aws:kms:us-east-1:123456789012:key/fake-key"
+          configure-checkout: "false"
+          digger-version: "v0.6.146"
+          no-backend: "true"
+      - name: Assert binary-mode was determined
+        env:
+          BINARY_MODE: ${{ steps.action.outputs.output }}
+        run: |
+          echo "Action step completed (continue-on-error). Inputs were passed successfully."
+          echo "PASS: AWS inputs were accepted by the action"

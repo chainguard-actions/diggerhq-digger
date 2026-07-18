@@ -1,0 +1,611 @@
+import { createFileRoute, Link, useParams, useRouter } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Lock, Unlock, MoreVertical, History, Trash2, Download, Upload, RefreshCcw, Copy, Check, ArrowUpRight, Save } from 'lucide-react'
+import { useState } from 'react'
+import { toast } from '@/hooks/use-toast'
+import { getUnitFn, getUnitVersionsFn, lockUnitFn, unlockUnitFn, getUnitStatusFn, deleteUnitFn, downloadLatestStateFn, restoreUnitStateVersionFn, updateUnitFn } from '@/api/statesman_serverFunctions'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { getPublicServerConfig } from '@/lib/env.server'
+import { DetailsSkeleton } from '@/components/LoadingSkeleton'
+import type { Env } from '@/lib/env.server'
+import { downloadJson } from '@/lib/io'
+
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import UnitStateForceUploadDialog from '@/components/UnitStateForceUploadDialog'
+import UnitConfigureInstructions from '@/components/UnitConfigureInstructions'
+
+function CopyButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="absolute top-2 right-2 h-8 w-8"
+      onClick={copy}
+    >
+      {copied ? (
+        <Check className="h-4 w-4 text-green-500" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+    </Button>
+  )
+}
+
+
+export const Route = createFileRoute(
+  '/_authenticated/_dashboard/dashboard/units/$unitId',
+)({
+  component: RouteComponent,
+  pendingComponent: () => (
+    <div className="container mx-auto p-4">
+      <div className="mb-6"><div className="h-10 w-32" /></div>
+      <DetailsSkeleton />
+    </div>
+  ),
+  loader: async ({ context, params: {unitId} }) => {
+    const { user, organisationId, organisationName } = context;
+
+    // Run all API calls in parallel instead of sequentially! 🚀
+    const [unitData, unitVersionsData, unitStatusData] = await Promise.all([
+      getUnitFn({data: {unitId: unitId}}),
+      getUnitVersionsFn({data: {unitId: unitId}}),
+      getUnitStatusFn({data: {unitId: unitId}})
+    ]);
+
+    const publicServerConfig = context.publicServerConfig
+    const publicHostname = publicServerConfig.PUBLIC_HOSTNAME || '<hostname>'
+
+
+    return {
+      unitData: unitData,
+      unitStatus: unitStatusData,
+      unitVersions: unitVersionsData.versions,
+      user,
+      organisationId,
+      organisationName,
+      publicHostname,
+
+    }
+  }
+})
+
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+function formatDate(input: Date | string | number) {
+  const date = input instanceof Date ? input : new Date(input)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+function RouteComponent() {
+  const data = Route.useLoaderData()
+  const { unitData, unitVersions, unitStatus, organisationId, organisationName, publicHostname, user } = data
+  const unit = unitData
+  const router = useRouter()
+  
+  // Debug: log unit data to console
+  console.log('Unit data:', {
+    id: unit.id,
+    name: unit.name,
+    tfe_execution_mode: unit.tfe_execution_mode,
+    tfe_engine: unit.tfe_engine,
+    tfe_terraform_version: unit.tfe_terraform_version
+  })
+  
+  // Settings state - handle null/undefined with sensible defaults
+  // Track versions separately for each engine to avoid confusion when switching
+  const [engine, setEngine] = useState<'terraform' | 'tofu'>(
+    (unit.tfe_engine as 'terraform' | 'tofu') || 'terraform'
+  )
+  const [terraformVersion, setTerraformVersion] = useState(
+    unit.tfe_engine === 'terraform' && unit.tfe_terraform_version && unit.tfe_terraform_version.trim() !== '' 
+      ? unit.tfe_terraform_version 
+      : '1.5.7'
+  )
+  const [tofuVersion, setTofuVersion] = useState(
+    unit.tfe_engine === 'tofu' && unit.tfe_terraform_version && unit.tfe_terraform_version.trim() !== '' 
+      ? unit.tfe_terraform_version 
+      : '1.6.0'
+  )
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  
+  // Get the current version based on selected engine
+  const currentVersion = engine === 'terraform' ? terraformVersion : tofuVersion
+  const setCurrentVersion = engine === 'terraform' ? setTerraformVersion : setTofuVersion
+
+  const handleUnlock = async () => {
+    try {
+      await unlockUnitFn({
+        data: {
+          unitId: unit.id,
+        },
+      })
+      toast({
+        title: 'Unit unlocked',
+        description: `Unit ${unit.name} was unlocked successfully.`,
+        duration: 1000,
+        variant: "default"
+      })
+      router.invalidate()
+    } catch (error) {
+      toast({
+        title: 'Failed to unlock unit',
+        description: `Failed to unlock unit ${unit.name}.`,
+        duration: 5000,
+        variant: "destructive"
+      })
+      console.error('Failed to unlock unit', error)
+    }
+  }
+
+  const handleLock = async () => {
+    try {
+      await lockUnitFn({
+        data: {
+          unitId: unit.id,
+        },
+      })
+      toast({
+        title: 'Unit locked',
+        description: `Unit ${unit.name} was locked successfully.`,
+        duration: 1000,
+        variant: "default"
+      })
+      router.invalidate()
+    } catch (error) {
+      toast({
+        title: 'Failed to lock unit',
+        description: `Failed to lock unit ${unit.name}.`,
+        duration: 5000,
+        variant: "destructive"
+      })
+      console.error('Failed to lock unit', error)
+    }
+  }
+
+
+  const handleDelete = async () => {
+    try {
+      await deleteUnitFn({
+        data: {
+          unitId: unit.id,
+        },
+      })
+
+      toast({
+        title: 'Unit deleted',
+        description: `Unit ${unit.name} was deleted successfully.`,
+        duration: 1000,
+        variant: "default"
+      })
+      router.invalidate()
+    } catch (error) {
+      console.error('Failed to delete unit', error)
+      toast({
+        title: 'Failed to delete unit',
+        description: `Failed to delete unit ${unit.name}.`,
+        duration: 5000,
+        variant: "destructive"
+      })
+      return
+    }
+    setTimeout(() => router.navigate({ to: '/dashboard/units' }), 500)
+  }
+
+  const handleDownloadLatestState = async () => {
+    try {
+      const state : any = await downloadLatestStateFn({
+        data: {
+          unitId: unit.id,
+        },
+      })
+      downloadJson(state, `${unit.name}-latest-state.json`)
+    } catch (error) {
+      console.error('Failed to download latest state', error)
+      toast({
+        title: 'Failed to download latest state',
+        description: `Failed to download latest state for unit ${unit.name}.`,
+        duration: 5000,
+        variant: "destructive"
+      })
+      return
+    }
+  }
+  
+  const handleRestoreStateVersion = async (timestamp: string, lockId: string) => {
+    try {
+      await restoreUnitStateVersionFn({
+        data: {
+          unitId: unit.id,
+          timestamp: timestamp,
+          lockId: lockId,
+        },
+      })
+      toast({
+        title: 'State version restored',
+        description: `State version ${timestamp} was restored successfully.`,
+        duration: 1000,
+        variant: "default"
+      })
+      router.invalidate()
+    } catch (error) {
+      console.error('Failed to restore state version', error)
+      toast({
+        title: 'Failed to restore state version',
+        description: `Failed to restore state version ${timestamp}.`,
+        duration: 5000,
+        variant: "destructive"
+      })
+      return
+    }
+  }
+
+  const handleUpdateSettings = async () => {
+    setIsSavingSettings(true)
+    try {
+      await updateUnitFn({
+        data: {
+          unitId: unit.id,
+          tfeAutoApply: undefined,
+          tfeExecutionMode: undefined,
+          tfeTerraformVersion: currentVersion,
+          tfeEngine: engine,
+          tfeWorkingDirectory: undefined
+        }
+      })
+      toast({
+        title: 'Settings updated',
+        description: 'Unit settings were updated successfully.',
+        duration: 2000,
+        variant: "default"
+      })
+      router.invalidate()
+    } catch (error) {
+      console.error('Failed to update settings', error)
+      toast({
+        title: 'Failed to update settings',
+        description: 'Failed to update unit settings.',
+        duration: 5000,
+        variant: "destructive"
+      })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" asChild>
+            <Link to="/dashboard/units">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Units
+            </Link>
+          </Button>
+          <div className="flex gap-2">
+              <Badge variant={unitStatus.status === "green" ? "secondary" : "destructive"}>
+                {unitStatus.status === "green" ? (
+                  <Check className="mr-2 h-3 w-3" />
+                ) : (
+                  <RefreshCcw className="mr-2 h-3 w-3" />
+                )}
+                {unitStatus.status === "green" ? "Up-to-date" : "Needs re-apply"}
+              </Badge>
+            <Badge variant={unit.locked ? "destructive" : "secondary"}>
+              {unit.locked ? <Lock className="mr-2 h-3 w-3" /> : <Unlock className="mr-2 h-3 w-3" />}
+              {unit.locked ? "Locked" : "Unlocked"}
+            </Badge>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+        <Button variant="outline" className="gap-2" onClick={handleDownloadLatestState}>
+            <Download className="h-4 w-4"  />
+            Download Latest State
+          </Button>
+          {unit.locked && <Button variant="outline" className="gap-2" onClick={handleUnlock}>
+            <Unlock className="h-4 w-4" />
+            Unlock
+          </Button>}
+          {!unit.locked && <Button variant="outline" className="gap-2" onClick={handleLock}>
+            <Lock className="h-4 w-4" />
+            Lock
+          </Button>}
+
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">{unit.name}</CardTitle>
+            <CardDescription>
+              ID: {unit.id}
+            </CardDescription>
+            <CardDescription>
+              Last updated {formatDate(unit.updated)} • {formatBytes(unit.size)}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Tabs defaultValue="setup">
+          <TabsList>
+            <TabsTrigger value="setup">Setup</TabsTrigger>
+            <TabsTrigger value="versions">State versions</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="setup" className="mt-6">
+            <UnitConfigureInstructions
+              unitId={unit.id}
+              organisationId={organisationId}
+              publicHostname={publicHostname}
+              showNextActions={false}
+            />
+            <div className="mt-4 rounded-md border bg-muted/30 p-4">
+              <p className="text-sm text-muted-foreground mb-2">
+                Want PR automation? Connect your VCS to trigger plans and applies from pull requests.
+              </p>
+              <Button asChild>
+                <Link to="/dashboard/onboarding" search={{ step: 'github' } as any}>
+                  Connect VCS for PR automation
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="versions" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Version History</CardTitle>
+                <CardDescription>Previous versions of this unit</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(!unitVersions || unitVersions.length === 0) ? (
+                  <div className="p-10 border border-dashed rounded-md text-center text-sm text-muted-foreground">
+                    No versions yet. A version will appear after the first state is uploaded.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Hash</TableHead>
+                        <TableHead className="w-[120px]">Size</TableHead>
+                        <TableHead className="w-[230px]">Date</TableHead>
+                        <TableHead className="w-[220px] text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {unitVersions.map((version: any) => {
+                        const shortHash = String(version.hash).slice(0, 8)
+                        return (
+                          <TableRow key={version.hash}>
+                            <TableCell>
+                              <code className="text-xs">{shortHash}</code>
+                            </TableCell>
+                            <TableCell>{formatBytes(Number(version.size) || 0)}</TableCell>
+                            <TableCell>{formatDate(version.timestamp)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {!version.isLatest && (
+                                  <Button variant="outline" size="sm" onClick={() => handleRestoreStateVersion(version.timestamp, version.lockId)}>
+                                    <History className="mr-2 h-4 w-4" />
+                                    Restore
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+
+
+          <TabsContent value="settings" className="mt-6">
+            {(unit.tfe_execution_mode === 'remote' || unit.tfe_execution_mode === 'agent') && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Remote Execution Settings</CardTitle>
+                  <CardDescription>Configure the IaC engine and version for remote runs</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div>
+                      <Label htmlFor="settings-engine">Engine</Label>
+                      <div className="mt-2">
+                        <RadioGroup
+                          value={engine}
+                          onValueChange={(v) => {
+                            setEngine(v as 'terraform' | 'tofu')
+                          }}
+                          className="flex gap-4"
+                        >
+                          <label
+                            htmlFor="settings-engine-terraform"
+                            className={`flex-1 cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted/50 ${engine === 'terraform' ? 'ring-2 ring-primary border-primary' : 'border-muted'}`}
+                            onClick={() => {
+                              setEngine('terraform')
+                            }}
+                          >
+                            <RadioGroupItem id="settings-engine-terraform" value="terraform" className="sr-only" />
+                            <div className="font-semibold">Terraform</div>
+                            <div className="text-xs text-muted-foreground">HashiCorp Terraform</div>
+                          </label>
+                          <label
+                            htmlFor="settings-engine-tofu"
+                            className={`flex-1 cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted/50 ${engine === 'tofu' ? 'ring-2 ring-primary border-primary' : 'border-muted'}`}
+                            onClick={() => {
+                              setEngine('tofu')
+                            }}
+                          >
+                            <RadioGroupItem id="settings-engine-tofu" value="tofu" className="sr-only" />
+                            <div className="font-semibold">OpenTofu</div>
+                            <div className="text-xs text-muted-foreground">Open-source fork</div>
+                          </label>
+                        </RadioGroup>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="settings-version">{engine === 'tofu' ? 'OpenTofu' : 'Terraform'} Version</Label>
+                      <div className="mt-2 space-y-2">
+                        <Input
+                          id="settings-version"
+                          value={currentVersion}
+                          onChange={(e) => setCurrentVersion(e.target.value)}
+                          placeholder={engine === 'tofu' ? '1.6.0' : '1.5.7'}
+                          className="font-mono"
+                        />
+                        {engine === 'terraform' && !!currentVersion && parseFloat(currentVersion) >= 1.6 && (
+                          <div className="flex items-start gap-2 rounded-md bg-yellow-50 dark:bg-yellow-950 p-3 text-sm text-yellow-800 dark:text-yellow-200">
+                            <svg className="h-5 w-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                            </svg>
+                            <div>
+                              <strong className="font-semibold">Warning: Unsupported version</strong>
+                              <p className="mt-1">Terraform versions 1.6.0 and above are not officially supported.</p>
+                            </div>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {engine === 'terraform' ? (
+                            <>Pre-built versions: 1.0.11, 1.3.9, 1.5.7 (fast startup). Custom versions installed at runtime.We do not support versions above 1.5.7</>
+                          ) : (
+                            <>Pre-built versions: 1.6.0, 1.10.0 (fast startup). Custom versions installed at runtime.</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button 
+                      onClick={handleUpdateSettings} 
+                      disabled={
+                        isSavingSettings || 
+                        (engine === 'terraform' && !!currentVersion && parseFloat(currentVersion) >= 1.6)
+                      } 
+                      className="gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      {isSavingSettings ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Dangerous Operations</CardTitle>
+                <CardDescription>These operations can potentially cause data loss. Use with caution.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Force Push State</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This will overwrite the remote state with your local state, ignoring any locks or version history.
+                      Only use this if you are absolutely sure your local state is correct.
+                    </p>
+                    <UnitStateForceUploadDialog unitId={unit.id} isDisabled={unit.locked} />
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h3 className="text-sm font-medium mb-2">Delete Unit</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      This will permanently delete this unit and all of its version history. 
+                      This action cannot be undone. Make sure to back up any important state before proceeding.
+                    </p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="gap-2">
+                          <Trash2 className="h-4 w-4" />
+                          Delete Unit
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this unit?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the unit
+                            and all of its version history.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
