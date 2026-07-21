@@ -1,0 +1,188 @@
+package repositories
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/diggerhq/digger/opentaco/internal/domain"
+	"gorm.io/gorm"
+)
+
+// gormIdentifierResolver implements domain.IdentifierResolver using GORM
+// This is the infrastructure layer implementation - it knows about databases
+type gormIdentifierResolver struct {
+	db *gorm.DB
+}
+
+// NewIdentifierResolver creates an identifier resolver backed by GORM
+// Returns domain interface - callers don't know about GORM
+func NewIdentifierResolver(db *gorm.DB) domain.IdentifierResolver {
+	return &gormIdentifierResolver{db: db}
+}
+
+// ResolveOrganization resolves organization identifier to UUID
+func (r *gormIdentifierResolver) ResolveOrganization(ctx context.Context, identifier string) (string, error) {
+	if r.db == nil {
+		return "", fmt.Errorf("database not available")
+	}
+	
+	parsed, err := domain.ParseIdentifier(identifier)
+	if err != nil {
+		return "", err
+	}
+	
+	var result struct{ ID string }
+	lookupValue := parsed.Name
+	if parsed.Type == domain.IdentifierTypeUUID {
+		lookupValue = parsed.UUID
+	}
+	
+	err = r.db.WithContext(ctx).
+		Table("organizations").
+		Select("id").
+		Where("external_org_id = ?", lookupValue).
+		First(&result).Error
+	
+	if err == nil {
+		return result.ID, nil
+	}
+	
+	if parsed.Type == domain.IdentifierTypeUUID {
+		err = r.db.WithContext(ctx).
+			Table("organizations").
+			Select("id").
+			Where("id = ?", parsed.UUID).
+			First(&result).Error
+		
+		if err == nil {
+			return parsed.UUID, nil
+		}
+	}
+	
+	return "", fmt.Errorf("organization not found: %s", lookupValue)
+}
+
+// GetOrganization retrieves full organization details by UUID
+func (r *gormIdentifierResolver) GetOrganization(ctx context.Context, orgID string) (*domain.Organization, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("database not available")
+	}
+	
+	var org struct {
+		ID            string
+		Name          string
+		DisplayName   string
+		ExternalOrgID *string
+		CreatedBy     string
+	}
+	
+	err := r.db.WithContext(ctx).
+		Table("organizations").
+		Where("id = ?", orgID).
+		First(&org).Error
+	
+	if err != nil {
+		return nil, fmt.Errorf("organization not found: %s", orgID)
+	}
+	
+	externalID := ""
+	if org.ExternalOrgID != nil {
+		externalID = *org.ExternalOrgID
+	}
+	
+	return &domain.Organization{
+		ID:            org.ID,
+		Name:          org.Name,
+		DisplayName:   org.DisplayName,
+		ExternalOrgID: externalID,
+		CreatedBy:     org.CreatedBy,
+	}, nil
+}
+
+// ResolveUnit resolves unit identifier to UUID within an organization
+func (r *gormIdentifierResolver) ResolveUnit(ctx context.Context, identifier, orgID string) (string, error) {
+	return r.resolveResource(ctx, "units", identifier, orgID)
+}
+
+// ResolveRole resolves role identifier to UUID within an organization
+func (r *gormIdentifierResolver) ResolveRole(ctx context.Context, identifier, orgID string) (string, error) {
+	return r.resolveResource(ctx, "roles", identifier, orgID)
+}
+
+// ResolvePermission resolves permission identifier to UUID within an organization
+func (r *gormIdentifierResolver) ResolvePermission(ctx context.Context, identifier, orgID string) (string, error) {
+	return r.resolveResource(ctx, "permissions", identifier, orgID)
+}
+
+// ResolveTag resolves tag identifier to UUID within an organization
+func (r *gormIdentifierResolver) ResolveTag(ctx context.Context, identifier, orgID string) (string, error) {
+	return r.resolveResource(ctx, "tags", identifier, orgID)
+}
+
+// UnitBelongsToOrg validates that a unit UUID belongs to the specified organization.
+// This is a security check to prevent IDOR attacks where an attacker provides
+// a unit UUID from another organization.
+func (r *gormIdentifierResolver) UnitBelongsToOrg(ctx context.Context, unitUUID, orgID string) (bool, error) {
+	if r.db == nil {
+		return false, fmt.Errorf("database not available")
+	}
+
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("units").
+		Where("id = ? AND org_id = ?", unitUUID, orgID).
+		Count(&count).Error
+
+	if err != nil {
+		return false, fmt.Errorf("failed to verify unit ownership: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// resolveResource is the generic resolver for org-scoped resources
+func (r *gormIdentifierResolver) resolveResource(ctx context.Context, table, identifier, orgID string) (string, error) {
+	if r.db == nil {
+		return "", fmt.Errorf("database not available")
+	}
+	
+	parsed, err := domain.ParseIdentifier(identifier)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse identifier %q: %w", identifier, err)
+	}
+	
+	// If already a UUID, return it
+	if parsed.Type == domain.IdentifierTypeUUID {
+		return parsed.UUID, nil
+	}
+	
+	// Handle org-scoped resolution
+	resourceOrgID := orgID
+	if parsed.Type == domain.IdentifierTypeAbsoluteName {
+		// Resolve org name to UUID first
+		resolvedOrgID, err := r.ResolveOrganization(ctx, parsed.OrgName)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve org %q for absolute name: %w", parsed.OrgName, err)
+		}
+		resourceOrgID = resolvedOrgID
+	}
+	
+	// Query resource by name within org
+	var result struct{ ID string }
+	err = r.db.WithContext(ctx).
+		Table(table).
+		Select("id").
+		Where("org_id = ?", resourceOrgID).
+		Where("name = ?", parsed.Name).
+		First(&result).Error
+	
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", fmt.Errorf("%s not found in org %s: name=%q", table, resourceOrgID, parsed.Name)
+		}
+		return "", fmt.Errorf("database error querying %s: %w", table, err)
+	}
+	
+	return result.ID, nil
+}
+

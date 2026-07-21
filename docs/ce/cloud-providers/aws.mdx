@@ -1,0 +1,47 @@
+---
+title: "AWS: Backendless DynamoDB lock storage"
+description: "Configure DynamoDB lock storage for PR locks when running Digger in backendless mode"
+---
+
+This setup is only required for backendless mode (`no-backend: true`).
+
+With the OpenTaco backend/orchestrator, PR locks are stored in the backend database automatically and this DynamoDB setup is not needed.
+
+In backendless mode, Digger checks for `DiggerDynamoDBLockTable` on first run and creates it if missing.
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ListAndDescribe",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:List*",
+                "dynamodb:DescribeReservedCapacity*",
+                "dynamodb:DescribeLimits",
+                "dynamodb:DescribeTimeToLive"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SpecificTable",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:BatchGet*",
+                "dynamodb:DescribeStream",
+                "dynamodb:DescribeTable",
+                "dynamodb:Get*",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:BatchWrite*",
+                "dynamodb:CreateTable",
+                "dynamodb:Delete*",
+                "dynamodb:Update*",
+                "dynamodb:PutItem"
+            ],
+            "Resource": "arn:aws:dynamodb:*:*:table/DiggerDynamoDBLockTable"
+        }
+    ]
+}
+```

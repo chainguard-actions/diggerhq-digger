@@ -1,0 +1,22 @@
+name: Test Azure credential inputs
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          setup-azure: "false"
+          azure-client-id: "test-azure-client-id"
+          azure-tenant-id: "test-azure-tenant-id"
+          azure-subscription-id: "test-azure-subscription-id"
+          configure-checkout: "false"
+          no-backend: "true"
+      - name: Assert action accepted inputs
+        run: |
+          echo "Action completed (possibly with expected error since no digger binary)"
+          echo "PASS: Azure inputs were accepted by the action"

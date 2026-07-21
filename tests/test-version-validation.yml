@@ -1,0 +1,59 @@
+name: Test digger-version format validation
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Assert valid version formats pass validation
+        run: |
+          set -euo pipefail
+
+          validate_version() {
+            local ver="$1"
+            if [[ ! ( -z "$ver" || "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+              echo "INVALID: $ver"
+              return 1
+            fi
+            echo "VALID: $ver"
+            return 0
+          }
+
+          # Empty string should be valid
+          validate_version "" || { echo "FAIL: empty string should be valid"; exit 1; }
+
+          # Valid semver tags should pass
+          validate_version "v0.6.145" || { echo "FAIL: v0.6.145 should be valid"; exit 1; }
+          validate_version "v1.0.0" || { echo "FAIL: v1.0.0 should be valid"; exit 1; }
+          validate_version "v10.20.300" || { echo "FAIL: v10.20.300 should be valid"; exit 1; }
+
+          echo "PASS: all valid version formats accepted"
+
+      - name: Assert invalid version formats fail validation
+        run: |
+          set -euo pipefail
+
+          validate_version() {
+            local ver="$1"
+            if [[ ! ( -z "$ver" || "$ver" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+              echo "INVALID (expected): $ver"
+              return 1
+            fi
+            echo "VALID (unexpected): $ver"
+            return 0
+          }
+
+          # These should all be invalid
+          INVALID_VERSIONS=("invalid-version" "1.0.0" "v1.0" "v1" "latest" "main" "v1.0.0-beta")
+
+          for ver in "${INVALID_VERSIONS[@]}"; do
+            if validate_version "$ver"; then
+              echo "FAIL: '$ver' should have been rejected but was accepted"
+              exit 1
+            fi
+          done
+
+          echo "PASS: all invalid version formats correctly rejected"

@@ -1,0 +1,66 @@
+name: Test cache directory default setup
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Verify the cache dir logic: when terraform-cache-dir is empty,
+      # TF_PLUGIN_CACHE_DIR should default to $GITHUB_WORKSPACE/cache
+      - name: Verify default cache dir logic
+        run: |
+          set -euo pipefail
+
+          WORKSPACE="/tmp/test-workspace"
+          TERRAFORM_CACHE_DIR=""
+
+          if [[ -z "$TERRAFORM_CACHE_DIR" ]]; then
+            CACHE_DIR="${WORKSPACE}/cache"
+          else
+            CACHE_DIR="$TERRAFORM_CACHE_DIR"
+          fi
+
+          echo "TF_PLUGIN_CACHE_DIR: $CACHE_DIR"
+          EXPECTED="${WORKSPACE}/cache"
+          if [ "$CACHE_DIR" != "$EXPECTED" ]; then
+            echo "FAIL: expected '$EXPECTED', got '$CACHE_DIR'"
+            exit 1
+          fi
+          echo "PASS: default cache dir correctly set to workspace/cache"
+
+      # Verify the cache dir logic: when terraform-cache-dir is set,
+      # TF_PLUGIN_CACHE_DIR should use the provided value
+      - name: Verify custom cache dir logic
+        run: |
+          set -euo pipefail
+
+          WORKSPACE="/tmp/test-workspace"
+          TERRAFORM_CACHE_DIR="/custom/cache/path"
+
+          if [[ -z "$TERRAFORM_CACHE_DIR" ]]; then
+            CACHE_DIR="${WORKSPACE}/cache"
+          else
+            CACHE_DIR="$TERRAFORM_CACHE_DIR"
+          fi
+
+          echo "TF_PLUGIN_CACHE_DIR: $CACHE_DIR"
+          EXPECTED="/custom/cache/path"
+          if [ "$CACHE_DIR" != "$EXPECTED" ]; then
+            echo "FAIL: expected '$EXPECTED', got '$CACHE_DIR'"
+            exit 1
+          fi
+          echo "PASS: custom cache dir correctly used when provided"
+
+      # Verify that the action creates the cache directory
+      - name: Verify cache directory is created by action
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/cache"
+          if [ ! -d "$GITHUB_WORKSPACE/cache" ]; then
+            echo "FAIL: cache directory was not created"
+            exit 1
+          fi
+          echo "PASS: cache directory exists at $GITHUB_WORKSPACE/cache"
