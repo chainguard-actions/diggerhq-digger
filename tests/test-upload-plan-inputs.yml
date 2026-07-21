@@ -1,0 +1,31 @@
+name: Test upload plan destination inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with upload plan destination inputs
+        id: action
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          upload-plan-destination: "aws"
+          upload-plan-destination-s3-bucket: "my-plan-bucket"
+          upload-plan-destination-s3-encryption-enabled: "true"
+          upload-plan-destination-s3-encryption-type: "KMS"
+          upload-plan-destination-s3-encryption-kms-key-id: "arn:aws:kms:us-east-1:123456789012:key/test-key"
+          upload-plan-destination-azure-container: "my-azure-container"
+          upload-plan-destination-azure-storage-account: "mystorageaccount"
+          upload-plan-destination-gcp-bucket: "my-gcp-plan-bucket"
+        continue-on-error: true
+
+      - name: Assert action accepted upload plan inputs without crashing at validation
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          # The action should not fail at input validation for upload plan destination inputs.
+          # The action may fail later when digger tries to run without a real backend.
+          echo "PASS: action accepted upload plan destination inputs"

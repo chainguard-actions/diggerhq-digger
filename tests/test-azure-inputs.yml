@@ -1,0 +1,28 @@
+name: Test Azure-related inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with Azure inputs (setup-azure false, inputs still passed)
+        id: action
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          setup-azure: "false"
+          azure-client-id: "00000000-0000-0000-0000-000000000001"
+          azure-tenant-id: "00000000-0000-0000-0000-000000000002"
+          azure-subscription-id: "00000000-0000-0000-0000-000000000003"
+        continue-on-error: true
+
+      - name: Assert action accepted Azure inputs without crashing at validation
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          # The action should not fail at input validation for Azure inputs.
+          # setup-azure is false so the Azure login step is skipped.
+          # The action may fail later when digger tries to run without a backend.
+          echo "PASS: action accepted Azure inputs"

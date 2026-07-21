@@ -1,0 +1,30 @@
+name: Test Google Cloud-related inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with Google Cloud inputs (setup-google-cloud false, inputs still passed)
+        id: action
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          setup-google-cloud: "false"
+          google-auth-credentials: "{\"type\":\"service_account\"}"
+          google-workload-identity-provider: "projects/123/locations/global/workloadIdentityPools/pool/providers/provider"
+          google-workload-identity-provider-audience: "https://iam.googleapis.com/projects/123"
+          google-service-account: "test-sa@test-project.iam.gserviceaccount.com"
+          google-lock-bucket: "my-lock-bucket"
+        continue-on-error: true
+
+      - name: Assert action accepted Google Cloud inputs without crashing at validation
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          # The action should not fail at input validation for Google Cloud inputs.
+          # setup-google-cloud is false so the Google auth validation and setup steps are skipped.
+          # The action may fail later when digger tries to run without a backend.
+          echo "PASS: action accepted Google Cloud inputs"

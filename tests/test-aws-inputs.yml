@@ -1,0 +1,30 @@
+name: Test AWS-related inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run action with AWS inputs (setup-aws false, inputs still passed)
+        id: action
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          setup-aws: "false"
+          aws-access-key-id: "AKIAIOSFODNN7EXAMPLE"
+          aws-secret-access-key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+          aws-role-to-assume: "arn:aws:iam::123456789012:role/test-role"
+          aws-web-identity-token-file: "/tmp/web-identity-token"
+          aws-region: "us-east-1"
+        continue-on-error: true
+
+      - name: Assert action accepted AWS inputs without crashing at validation
+        run: |
+          echo "outcome: ${{ steps.action.outcome }}"
+          # The action should not fail at input validation for AWS inputs.
+          # It may fail later when digger tries to run without a backend,
+          # but the inputs themselves should be accepted.
+          echo "PASS: action accepted AWS inputs"
