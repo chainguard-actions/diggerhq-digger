@@ -8,7 +8,6 @@ name: Top issues updater
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   get-top-issues:

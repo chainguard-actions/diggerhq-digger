@@ -286,8 +286,8 @@ runs:
           "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
     - name: digger run
       env:
-        DIGGER_INPUT_ID: ${{ inputs.id }}
-      run: echo digger run "$DIGGER_INPUT_ID"
+        DIGGER_RUN_ID: ${{ inputs.id }}
+      run: echo digger run "$DIGGER_RUN_ID"
       shell: bash
     - name: Determine binary mode (local, build, or pre-built)
       id: determine-binary-mode
@@ -314,13 +314,13 @@ runs:
       shell: bash
     - name: Validate Input Configuration for Google
       env:
-        GOOGLE_AUTH_CREDENTIALS: ${{ toJSON(inputs.google-auth-credentials) }}
+        GOOGLE_AUTH_CREDENTIALS: ${{ inputs.google-auth-credentials }}
         GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ inputs.google-workload-identity-provider }}
         GOOGLE_SERVICE_ACCOUNT: ${{ inputs.google-service-account }}
       run: |
-        if [[ -z $GOOGLE_AUTH_CREDENTIALS && -z "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+        if [[ -z "$GOOGLE_AUTH_CREDENTIALS" && -z "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" ]]; then
           echo "Either 'google-auth-credentials' or 'google-workload-identity-provider' input must be specified with 'setup-google-cloud'"
-        elif [[ ! -z "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" && -z "$GOOGLE_SERVICE_ACCOUNT" ]]; then
+        elif [[ -n "$GOOGLE_WORKLOAD_IDENTITY_PROVIDER" && -z "$GOOGLE_SERVICE_ACCOUNT" ]]; then
           echo "'google-service-account' input must be specified with 'google-workload-identity-provider'"
         else
           exit 0
@@ -385,17 +385,17 @@ runs:
       shell: bash
       env:
         INPUT_TERRAFORM_CACHE_DIR: ${{ inputs.terraform-cache-dir }}
-        DEFAULT_CACHE_DIR: ${{ format('{0}/cache', github.workspace) }}
+        DEFAULT_CACHE_DIR: ${{ github.workspace }}/cache
       run: |
         if [[ -z "$INPUT_TERRAFORM_CACHE_DIR" ]]; then
           CACHE_DIR="$DEFAULT_CACHE_DIR"
         else
           CACHE_DIR="$INPUT_TERRAFORM_CACHE_DIR"
         fi
-        safe=$(printf '%s' "$CACHE_DIR" | tr -d '\n\r')
-        echo "TF_PLUGIN_CACHE_DIR=$safe" >> "$GITHUB_ENV"
-        echo "TG_PROVIDER_CACHE_DIR=$safe" >> "$GITHUB_ENV"
-        echo "TERRAGRUNT_PROVIDER_CACHE_DIR=$safe" >> "$GITHUB_ENV"
+        safe_cache_dir=$(printf '%s' "$CACHE_DIR" | tr -d '\n\r')
+        echo "TF_PLUGIN_CACHE_DIR=$safe_cache_dir" >> "$GITHUB_ENV"
+        echo "TG_PROVIDER_CACHE_DIR=$safe_cache_dir" >> "$GITHUB_ENV"
+        echo "TERRAGRUNT_PROVIDER_CACHE_DIR=$safe_cache_dir" >> "$GITHUB_ENV"
     - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       id: restore_cache
       name: restore_cache
@@ -408,11 +408,16 @@ runs:
     - name: restore-s3-cache
       shell: bash
       env:
-        BUCKET: ${{ inputs.cache-dependencies-s3-bucket }}
-        REGION: ${{ inputs.cache-dependencies-s3-region }}
-        PREFIX: ${{ inputs.cache-dependencies-s3-bucket-prefix }}
-        SCRIPT_PATH: ${{ github.action_path }}/scripts/s3-cache-download.bash
+        INPUT_S3_BUCKET: ${{ inputs.cache-dependencies-s3-bucket }}
+        INPUT_S3_REGION: ${{ inputs.cache-dependencies-s3-region }}
+        INPUT_S3_BUCKET_PREFIX: ${{ inputs.cache-dependencies-s3-bucket-prefix }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
+        BUCKET="$INPUT_S3_BUCKET"
+        REGION="$INPUT_S3_REGION"
+        PREFIX="$INPUT_S3_BUCKET_PREFIX"
+
+        SCRIPT_PATH="$ACTION_PATH/scripts/s3-cache-download.bash"
         if [ ! -f "$SCRIPT_PATH" ]; then
           echo "::error::S3 cache download script not found at $SCRIPT_PATH"
           echo "Please make sure the script exists and is properly installed."
@@ -614,11 +619,10 @@ runs:
         TERRAGRUNT_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
         DIGGER_RUN_SPEC: ${{inputs.digger-spec}}
         DIGGER_LOG_LEVEL: ${{ inputs.log-level }}
+        INPUT_LOCAL_DEV_CLI_PATH: ${{ inputs.local-dev-cli-path }}
       id: digger-local-run
       shell: bash
-      env:
-        LOCAL_DEV_CLI_PATH: ${{ inputs.local-dev-cli-path }}
-      run: "set -euo pipefail\n\ncd $GITHUB_WORKSPACE\n\necho \"\U0001F680 Running digger...\"\nRAW=\"$LOCAL_DEV_CLI_PATH\"\n\n# Validate path to prevent command injection\nif [[ \"$RAW\" =~ [^a-zA-Z0-9_./-] ]]; then\n  echo \"❌ Invalid characters in local-dev-cli-path\"\n  exit 1\nfi\n\nif [[ \"$RAW\"  =~ \\.\\. || \"$RAW\" == : || \"$RAW\" != /* ]]; then\n  echo \"❌ traversal/colon/relative not allowed\"; exit 1\nfi        \n\nDIR=$(realpath -- \"$RAW\") || { echo \"❌ not found\"; exit 1; }\n[[ -d \"$DIR\" ]] || { echo \"❌ not a dir\"; exit 1; }        \n\nBIN=\"$DIR/digger\"\n[[ -x \"$BIN\" ]] || { echo \"❌ digger not executable at $BIN\"; exit 1; }        \n\n$BIN\necho \"✅ digger completed\"\n"
+      run: "set -euo pipefail\n\ncd $GITHUB_WORKSPACE\n\necho \"\U0001F680 Running digger...\"\nRAW=\"$INPUT_LOCAL_DEV_CLI_PATH\"\n\n# Validate path to prevent command injection\nif [[ \"$RAW\" =~ [^a-zA-Z0-9_./-] ]]; then\n  echo \"❌ Invalid characters in local-dev-cli-path\"\n  exit 1\nfi\n\nif [[ \"$RAW\"  =~ \\.\\. || \"$RAW\" == : || \"$RAW\" != /* ]]; then\n  echo \"❌ traversal/colon/relative not allowed\"; exit 1\nfi        \n\nDIR=$(realpath -- \"$RAW\") || { echo \"❌ not found\"; exit 1; }\n[[ -d \"$DIR\" ]] || { echo \"❌ not a dir\"; exit 1; }        \n\nBIN=\"$DIR/digger\"\n[[ -x \"$BIN\" ]] || { echo \"❌ digger not executable at $BIN\"; exit 1; }        \n\n$BIN\necho \"✅ digger completed\"\n"
     - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       name: cache-save
       if: ${{ always() && inputs.cache-dependencies == 'true' && steps.restore_cache.outputs.cache-hit != 'true' }}
@@ -628,11 +632,16 @@ runs:
     - name: save-s3-cache
       shell: bash
       env:
-        BUCKET: ${{ inputs.cache-dependencies-s3-bucket }}
-        REGION: ${{ inputs.cache-dependencies-s3-region }}
-        PREFIX: ${{ inputs.cache-dependencies-s3-bucket-prefix }}
-        SCRIPT_PATH: ${{ github.action_path }}/scripts/s3-cache-upload.bash
+        INPUT_S3_BUCKET: ${{ inputs.cache-dependencies-s3-bucket }}
+        INPUT_S3_REGION: ${{ inputs.cache-dependencies-s3-region }}
+        INPUT_S3_BUCKET_PREFIX: ${{ inputs.cache-dependencies-s3-bucket-prefix }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
+        BUCKET="$INPUT_S3_BUCKET"
+        REGION="$INPUT_S3_REGION"
+        PREFIX="$INPUT_S3_BUCKET_PREFIX"
+
+        SCRIPT_PATH="$ACTION_PATH/scripts/s3-cache-upload.bash"
         if [ ! -f "$SCRIPT_PATH" ]; then
           echo "::error::S3 cache upload script not found at $SCRIPT_PATH"
           echo "Please make sure the script exists and is properly installed."

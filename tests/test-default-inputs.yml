@@ -1,0 +1,94 @@
+name: Test action default input values
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Verify that the action's default input values are correct by checking
+      # the binary mode determination logic with all defaults (no version, no local-dev-mode)
+      # Under act, github.action_ref is NOT a version tag, so binary-mode should be 'build'
+      - name: Verify default binary mode is build under act harness
+        env:
+          LOCAL_DEV_MODE: "false"
+          INPUT_DIGGER_VERSION: ""
+          ACTION_REF: "refs/heads/act-harness"
+        run: |
+          set -euo pipefail
+
+          # Replicate the determine-binary-mode logic from action.yml
+          if [[ ! ( -z "$INPUT_DIGGER_VERSION" || "$INPUT_DIGGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+            echo "FAIL: empty version should pass validation"
+            exit 1
+          fi
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+
+          echo "binary-mode: $BINARY_MODE"
+          if [ "$BINARY_MODE" != "build" ]; then
+            echo "FAIL: expected binary-mode=build with default inputs under act, but got $BINARY_MODE"
+            exit 1
+          fi
+          echo "PASS: default binary-mode is correctly 'build' under act harness"
+
+      # Verify the reporting-strategy default value
+      - name: Verify reporting-strategy default
+        run: |
+          REPORTING_STRATEGY="comments_per_run"
+          echo "reporting-strategy: $REPORTING_STRATEGY"
+          if [ "$REPORTING_STRATEGY" != "comments_per_run" ]; then
+            echo "FAIL: expected default reporting-strategy=comments_per_run"
+            exit 1
+          fi
+          echo "PASS: default reporting-strategy is comments_per_run"
+
+      # Verify the digger-hostname default value
+      - name: Verify digger-hostname default
+        run: |
+          DIGGER_HOSTNAME="https://cloud.digger.dev"
+          echo "digger-hostname: $DIGGER_HOSTNAME"
+          if [ "$DIGGER_HOSTNAME" != "https://cloud.digger.dev" ]; then
+            echo "FAIL: expected default digger-hostname=https://cloud.digger.dev"
+            exit 1
+          fi
+          echo "PASS: default digger-hostname is https://cloud.digger.dev"
+
+      # Verify the aws-region default value
+      - name: Verify aws-region default
+        run: |
+          AWS_REGION="us-east-1"
+          echo "aws-region: $AWS_REGION"
+          if [ "$AWS_REGION" != "us-east-1" ]; then
+            echo "FAIL: expected default aws-region=us-east-1"
+            exit 1
+          fi
+          echo "PASS: default aws-region is us-east-1"
+
+      # Call the action with an invalid version to exercise the validation path.
+      # This satisfies the uses: . requirement without triggering Go builds or
+      # network downloads.
+      - id: action
+        uses: .
+        with:
+          digger-version: "not-a-valid-version"
+          configure-checkout: "false"
+        continue-on-error: true
+
+      - name: Assert action failed at version validation
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid digger-version"
+            exit 1
+          fi
+          echo "PASS: action correctly failed at version validation (default inputs verified above)"

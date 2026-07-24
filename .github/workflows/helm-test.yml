@@ -27,7 +27,7 @@ jobs:
           - opentaco
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
@@ -37,19 +37,25 @@ jobs:
           helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
 
       - name: Build chart dependencies (if any)
+        env:
+          CHART_NAME: ${{ matrix.chart }}
         run: |
-          if grep -q "^dependencies:" self-hosting/kubernetes/helm-charts/${{ matrix.chart }}/Chart.yaml; then
-            helm dependency build self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+          if grep -q "^dependencies:" "self-hosting/kubernetes/helm-charts/${CHART_NAME}/Chart.yaml"; then
+            helm dependency build "self-hosting/kubernetes/helm-charts/${CHART_NAME}"
           fi
 
       - name: Lint chart
+        env:
+          CHART_NAME: ${{ matrix.chart }}
         run: |
-          helm lint self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+          helm lint "self-hosting/kubernetes/helm-charts/${CHART_NAME}"
 
       - name: Run unit tests (if present)
+        env:
+          CHART_NAME: ${{ matrix.chart }}
         run: |
-          if [ -d "self-hosting/kubernetes/helm-charts/${{ matrix.chart }}/tests" ]; then
-            helm unittest self-hosting/kubernetes/helm-charts/${{ matrix.chart }}
+          if [ -d "self-hosting/kubernetes/helm-charts/${CHART_NAME}/tests" ]; then
+            helm unittest "self-hosting/kubernetes/helm-charts/${CHART_NAME}"
           else
-            echo "No helm-unittest tests found for ${{ matrix.chart }}, skipping"
+            echo "No helm-unittest tests found for ${CHART_NAME}, skipping"
           fi

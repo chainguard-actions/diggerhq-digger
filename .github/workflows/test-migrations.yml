@@ -33,7 +33,7 @@ jobs:
         env:
           POSTGRES_DB: taco
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.TEST_POSTGRES_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         ports:
           - 5432:5432
         options: >-
@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -56,9 +56,8 @@ jobs:
 
       - name: Install Atlas CLI
         run: |
-          curl -sSfL https://atlasgo.sh -o /tmp/atlasgo-install.sh
-          sh /tmp/atlasgo-install.sh
-          rm /tmp/atlasgo-install.sh
+          curl -sSfL https://release.ariga.io/atlas/atlas-linux-amd64-latest -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
           atlas version
 
       - name: Generate migration checksums for PostgreSQL
@@ -70,11 +69,11 @@ jobs:
       - name: Apply migrations manually (simulating entrypoint.sh)
         working-directory: taco
         env:
-          POSTGRES_PASSWORD: ${{ secrets.TEST_POSTGRES_PASSWORD }}
+          POSTGRES_URL: postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/taco?sslmode=disable
         run: |
           echo "Applying PostgreSQL migrations..."
           atlas migrate apply \
-            --url "postgres://postgres:${POSTGRES_PASSWORD}@localhost:5432/taco?sslmode=disable" \
+            --url "$POSTGRES_URL" \
             --dir "file://migrations/postgres"
 
       - name: Build statesman binary
@@ -89,7 +88,7 @@ jobs:
           OPENTACO_POSTGRES_HOST: localhost
           OPENTACO_POSTGRES_PORT: 5432
           OPENTACO_POSTGRES_USER: postgres
-          OPENTACO_POSTGRES_PASSWORD: ${{ secrets.TEST_POSTGRES_PASSWORD }}
+          OPENTACO_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           OPENTACO_POSTGRES_DATABASE: taco
           OPENTACO_POSTGRES_SSLMODE: disable
           OPENTACO_AUTH_DISABLE: true
@@ -124,10 +123,10 @@ jobs:
       mysql:
         image: mysql:8
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
           MYSQL_DATABASE: taco
           MYSQL_USER: mysql
-          MYSQL_PASSWORD: mysql
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
         ports:
           - 3306:3306
         options: >-
@@ -138,7 +137,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -150,9 +149,8 @@ jobs:
 
       - name: Install Atlas CLI
         run: |
-          curl -sSfL https://atlasgo.sh -o /tmp/atlasgo-install.sh
-          sh /tmp/atlasgo-install.sh
-          rm /tmp/atlasgo-install.sh
+          curl -sSfL https://release.ariga.io/atlas/atlas-linux-amd64-latest -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
           atlas version
 
       - name: Generate migration checksums for MySQL
@@ -164,7 +162,7 @@ jobs:
       - name: Apply migrations manually (simulating entrypoint.sh)
         working-directory: taco
         env:
-          MYSQL_URL: mysql://mysql:mysql@localhost:3306/taco
+          MYSQL_URL: mysql://mysql:${{ secrets.MYSQL_PASSWORD }}@localhost:3306/taco
         run: |
           echo "Applying MySQL migrations..."
           atlas migrate apply \
@@ -183,10 +181,10 @@ jobs:
           OPENTACO_MYSQL_HOST: localhost
           OPENTACO_MYSQL_PORT: 3306
           OPENTACO_MYSQL_USER: mysql
-          OPENTACO_MYSQL_PASSWORD: mysql
+          OPENTACO_MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
           OPENTACO_MYSQL_DATABASE: taco
           OPENTACO_AUTH_DISABLE: true
-          OPENTACO_JWT_SECRET: ${{ secrets.OPENTACO_JWT_SECRET_CI }}
+          OPENTACO_JWT_SECRET: ${{ secrets.OPENTACO_JWT_SECRET || 'test-secret-key-for-ci' }}
         run: |
           # Run binary and capture output
           echo "Starting statesman binary..."
@@ -216,7 +214,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -228,9 +226,8 @@ jobs:
 
       - name: Install Atlas CLI
         run: |
-          curl -sSfL https://atlasgo.sh -o /tmp/atlasgo-install.sh
-          sh /tmp/atlasgo-install.sh
-          rm /tmp/atlasgo-install.sh
+          curl -sSfL https://release.ariga.io/atlas/atlas-linux-amd64-latest -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
           atlas version
 
       - name: Create SQLite database directory
@@ -247,10 +244,12 @@ jobs:
 
       - name: Apply migrations manually (simulating entrypoint.sh)
         working-directory: taco
+        env:
+          GITHUB_WORKSPACE_VAL: ${{ github.workspace }}
         run: |
-          echo "Applying SQLite migrations to $GITHUB_WORKSPACE/taco/.data/test.db"
+          echo "Applying SQLite migrations to ${GITHUB_WORKSPACE_VAL}/taco/.data/test.db"
           atlas migrate apply \
-            --url "sqlite://$GITHUB_WORKSPACE/taco/.data/test.db" \
+            --url "sqlite://${GITHUB_WORKSPACE_VAL}/taco/.data/test.db" \
             --dir "file://migrations/sqlite"
           
           # Verify database file was created

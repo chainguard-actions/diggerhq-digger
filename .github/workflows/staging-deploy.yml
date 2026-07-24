@@ -71,18 +71,18 @@ jobs:
             runner: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Generate staging tag
         id: tag
         env:
-          GH_SHA: ${{ github.sha }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
         run: |
-          SHORT_SHA=$(printf '%s' "$GH_SHA" | cut -c1-7 | tr -d '\n\r')
+          SHORT_SHA=$(echo "$GITHUB_SHA_VAL" | cut -c1-7)
           STAGING_TAG="staging-${SHORT_SHA}"
-          echo "tag=${STAGING_TAG}" >> "$GITHUB_OUTPUT"
+          echo "tag=${STAGING_TAG}" >> $GITHUB_OUTPUT
           echo "Generated staging tag: ${STAGING_TAG}"
 
       - name: Set up Docker Buildx
@@ -140,17 +140,17 @@ jobs:
 
       - name: Output image info
         env:
-          REGISTRY: ${{ env.REGISTRY }}
+          REGISTRY_VAL: ${{ env.REGISTRY }}
           IMAGE_NAME: ${{ matrix.image_name }}
           STAGING_TAG: ${{ steps.tag.outputs.tag }}
-          SERVICE: ${{ matrix.service }}
-          GH_SHA: ${{ github.sha }}
+          SERVICE_NAME: ${{ matrix.service }}
+          COMMIT_SHA: ${{ github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "✅ Built and pushed: ${REGISTRY}/${IMAGE_NAME}:${STAGING_TAG}"
-          echo "Service: ${SERVICE}"
+          echo "✅ Built and pushed: ${REGISTRY_VAL}/${IMAGE_NAME}:${STAGING_TAG}"
+          echo "Service: ${SERVICE_NAME}"
           echo "Tag: ${STAGING_TAG}"
-          echo "Commit: ${GH_SHA}"
+          echo "Commit: ${COMMIT_SHA}"
           echo "PR: #${PR_NUMBER}"
 
   update-helm-chart:
@@ -161,15 +161,15 @@ jobs:
       - name: Generate staging tag
         id: tag
         env:
-          GH_SHA: ${{ github.sha }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
         run: |
-          SHORT_SHA=$(printf '%s' "$GH_SHA" | cut -c1-7 | tr -d '\n\r')
+          SHORT_SHA=$(echo "$GITHUB_SHA_VAL" | cut -c1-7)
           STAGING_TAG="staging-${SHORT_SHA}"
-          echo "tag=${STAGING_TAG}" >> "$GITHUB_OUTPUT"
+          echo "tag=${STAGING_TAG}" >> $GITHUB_OUTPUT
           echo "Generated staging tag: ${STAGING_TAG}"
 
       - name: Checkout helm charts repo
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: diggerhq/opentaco-helm-charts
           token: ${{ secrets.HELM_CHARTS_PAT }}
@@ -244,38 +244,38 @@ jobs:
     steps:
       - name: Deployment Summary
         env:
-          GH_SHA: ${{ github.sha }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          GH_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_VAL: ${{ github.repository }}
         run: |
-          SHORT_SHA=$(printf '%s' "$GH_SHA" | cut -c1-7)
+          SHORT_SHA=$(echo "$GITHUB_SHA_VAL" | cut -c1-7)
           STAGING_TAG="staging-${SHORT_SHA}"
           
           echo "## 🚀 Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**PR:** #${PR_NUMBER}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** \`${GH_SHA}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${GITHUB_SHA_VAL}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Staging Tag:** \`${STAGING_TAG}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Built Images" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Image |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Backend EE | \`ghcr.io/${GH_REPOSITORY}/digger-backend-ee:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Drift | \`ghcr.io/${GH_REPOSITORY}/drift:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Projects Refresh | \`ghcr.io/${GH_REPOSITORY}/projects-refresh-service:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| UI | \`ghcr.io/${GH_REPOSITORY}/taco-ui:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Taco Statesman | \`ghcr.io/${GH_REPOSITORY}/taco-statesman:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Taco Token Service | \`ghcr.io/${GH_REPOSITORY}/taco-token-service:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend EE | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/digger-backend-ee:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Drift | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/drift:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Projects Refresh | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/projects-refresh-service:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| UI | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-ui:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Taco Statesman | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-statesman:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Taco Token Service | \`ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-token-service:${STAGING_TAG}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Pull Images" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/digger-backend-ee:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/drift:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/projects-refresh-service:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/taco-ui:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/taco-statesman:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ghcr.io/${GH_REPOSITORY}/taco-token-service:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/digger-backend-ee:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/drift:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/projects-refresh-service:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-ui:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-statesman:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ghcr.io/${GITHUB_REPOSITORY_VAL}/taco-token-service:${STAGING_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Helm Chart Updated ✅" >> $GITHUB_STEP_SUMMARY

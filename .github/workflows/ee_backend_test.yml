@@ -22,7 +22,7 @@ jobs:
         id: go
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Test that the docker image still builds successfully
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1

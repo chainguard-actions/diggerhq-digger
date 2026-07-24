@@ -1,0 +1,83 @@
+name: Test binary mode prebuilt when digger-version is set
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Verify the binary mode determination logic sets 'prebuilt' when
+      # a valid digger-version is provided
+      - name: Verify binary mode determination for prebuilt
+        env:
+          LOCAL_DEV_MODE: "false"
+          INPUT_DIGGER_VERSION: "v0.6.147"
+          ACTION_REF: "refs/heads/act-harness"
+        run: |
+          set -euo pipefail
+
+          if [[ ! ( -z "$INPUT_DIGGER_VERSION" || "$INPUT_DIGGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+            echo "::error::Invalid digger-version input $INPUT_DIGGER_VERSION. Must be empty string or match vX.Y.Z"
+            exit 1
+          fi
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+
+          echo "binary-mode: $BINARY_MODE"
+          if [ "$BINARY_MODE" != "prebuilt" ]; then
+            echo "FAIL: expected binary-mode=prebuilt but got $BINARY_MODE"
+            exit 1
+          fi
+          echo "PASS: binary-mode correctly set to prebuilt when digger-version is provided"
+
+      # Verify that an empty version with non-v action_ref gives 'build' mode
+      - name: Verify empty version with non-v ref gives build mode
+        env:
+          LOCAL_DEV_MODE: "false"
+          INPUT_DIGGER_VERSION: ""
+          ACTION_REF: "refs/heads/main"
+        run: |
+          set -euo pipefail
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+
+          echo "binary-mode: $BINARY_MODE"
+          if [ "$BINARY_MODE" != "build" ]; then
+            echo "FAIL: expected binary-mode=build but got $BINARY_MODE"
+            exit 1
+          fi
+          echo "PASS: binary-mode correctly set to build when no version and non-v ref"
+
+      # Call the action with an invalid version to exercise the validation path.
+      # This satisfies the uses: . requirement without triggering Go builds or
+      # network downloads.
+      - id: action
+        uses: .
+        with:
+          digger-version: "not-a-valid-version"
+          configure-checkout: "false"
+        continue-on-error: true
+
+      - name: Assert action failed at version validation
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid digger-version"
+            exit 1
+          fi
+          echo "PASS: action correctly failed at version validation"

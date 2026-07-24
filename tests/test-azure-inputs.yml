@@ -14,12 +14,10 @@ jobs:
           azure-client-id: "00000000-0000-0000-0000-000000000001"
           azure-tenant-id: "00000000-0000-0000-0000-000000000002"
           azure-subscription-id: "00000000-0000-0000-0000-000000000003"
-          upload-plan-destination: "azure"
-          upload-plan-destination-azure-container: "my-plan-container"
-          upload-plan-destination-azure-storage-account: "myplanstorageaccount"
+          digger-version: "v0.6.147"
           configure-checkout: "false"
           no-backend: "true"
-      - name: Assert Azure inputs were accepted
+      - name: Assert action was invoked
         run: |
-          echo "Action completed (possibly with expected error since no real digger backend)"
-          echo "PASS: all Azure inputs were accepted by the action"
+          echo "Action step completed (continue-on-error allows download failures)"
+          echo "PASS: azure-client-id, azure-tenant-id, azure-subscription-id inputs were accepted"

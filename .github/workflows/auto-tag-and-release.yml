@@ -34,7 +34,7 @@ jobs:
       projects_refresh_version: ${{ steps.versions.outputs.projects_refresh_version }}
       sidecar_version: ${{ steps.versions.outputs.sidecar_version }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       
@@ -43,7 +43,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           FORCE_SERVICES: ${{ github.event.inputs.force_services }}
-          PREV_COMMIT_SHA: ${{ github.event.before }}
+          EVENT_BEFORE: ${{ github.event.before }}
         run: |
           # Get the previous commit
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$FORCE_SERVICES" ]; then
@@ -58,52 +58,52 @@ jobs:
             [[ "$FORCE" == *"sidecar"* ]] && echo "sidecar=true" >> $GITHUB_OUTPUT || echo "sidecar=false" >> $GITHUB_OUTPUT
           else
             # Auto-detect based on changed files
-            PREV_COMMIT="$PREV_COMMIT_SHA"
+            PREV_COMMIT="$EVENT_BEFORE"
             
             # Check backend_ee changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(backend/|ee/backend/|Dockerfile_backend_ee|go.mod|go.sum)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(backend/|ee/backend/|Dockerfile_backend_ee|go.mod|go.sum)'; then
               echo "backend_ee=true" >> $GITHUB_OUTPUT
             else
               echo "backend_ee=false" >> $GITHUB_OUTPUT
             fi
             
             # Check drift changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(drift/|Dockerfile_drift)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(drift/|Dockerfile_drift)'; then
               echo "drift=true" >> $GITHUB_OUTPUT
             else
               echo "drift=false" >> $GITHUB_OUTPUT
             fi
             
             # Check UI changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(ui/|Dockerfile_ui)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(ui/|Dockerfile_ui)'; then
               echo "ui=true" >> $GITHUB_OUTPUT
             else
               echo "ui=false" >> $GITHUB_OUTPUT
             fi
             
             # Check statesman changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(taco/cmd/statesman/|taco/internal/|taco/pkg/|taco/migrations/|taco/Dockerfile_statesman)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(taco/cmd/statesman/|taco/internal/|taco/pkg/|taco/migrations/|taco/Dockerfile_statesman)'; then
               echo "statesman=true" >> $GITHUB_OUTPUT
             else
               echo "statesman=false" >> $GITHUB_OUTPUT
             fi
             
             # Check token-service changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(taco/cmd/token_service/|taco/internal/|taco/Dockerfile_token_service)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(taco/cmd/token_service/|taco/internal/|taco/Dockerfile_token_service)'; then
               echo "token_service=true" >> $GITHUB_OUTPUT
             else
               echo "token_service=false" >> $GITHUB_OUTPUT
             fi
             
             # Check projects-refresh changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(background/projects-refresh-service/|Dockerfile_bg_projects_refresh)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(background/projects-refresh-service/|Dockerfile_bg_projects_refresh)'; then
               echo "projects_refresh=true" >> $GITHUB_OUTPUT
             else
               echo "projects_refresh=false" >> $GITHUB_OUTPUT
             fi
             
             # Check sidecar changes
-            if git diff --name-only $PREV_COMMIT HEAD | grep -E '^(sandbox-sidecar/|\.github/workflows/sidecar-release\.yml)'; then
+            if git diff --name-only "$PREV_COMMIT" HEAD | grep -E '^(sandbox-sidecar/|\.github/workflows/sidecar-release\.yml)'; then
               echo "sidecar=true" >> $GITHUB_OUTPUT
             else
               echo "sidecar=false" >> $GITHUB_OUTPUT
@@ -150,17 +150,19 @@ jobs:
     if: needs.detect-changes.outputs.backend_ee_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          BACKEND_EE_VERSION: ${{ needs.detect-changes.outputs.backend_ee_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="backend-ee/${{ needs.detect-changes.outputs.backend_ee_version }}"
-          git tag -a "$TAG" -m "Release backend_ee ${{ needs.detect-changes.outputs.backend_ee_version }}"
+          TAG="backend-ee/${BACKEND_EE_VERSION}"
+          git tag -a "$TAG" -m "Release backend_ee ${BACKEND_EE_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -170,17 +172,19 @@ jobs:
     if: needs.detect-changes.outputs.drift_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          DRIFT_VERSION: ${{ needs.detect-changes.outputs.drift_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="drift/${{ needs.detect-changes.outputs.drift_version }}"
-          git tag -a "$TAG" -m "Release drift ${{ needs.detect-changes.outputs.drift_version }}"
+          TAG="drift/${DRIFT_VERSION}"
+          git tag -a "$TAG" -m "Release drift ${DRIFT_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -190,17 +194,19 @@ jobs:
     if: needs.detect-changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          UI_VERSION: ${{ needs.detect-changes.outputs.ui_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="ui/${{ needs.detect-changes.outputs.ui_version }}"
-          git tag -a "$TAG" -m "Release UI ${{ needs.detect-changes.outputs.ui_version }}"
+          TAG="ui/${UI_VERSION}"
+          git tag -a "$TAG" -m "Release UI ${UI_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -210,17 +216,19 @@ jobs:
     if: needs.detect-changes.outputs.statesman_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          STATESMAN_VERSION: ${{ needs.detect-changes.outputs.statesman_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="taco/statesman/${{ needs.detect-changes.outputs.statesman_version }}"
-          git tag -a "$TAG" -m "Release statesman ${{ needs.detect-changes.outputs.statesman_version }}"
+          TAG="taco/statesman/${STATESMAN_VERSION}"
+          git tag -a "$TAG" -m "Release statesman ${STATESMAN_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -230,17 +238,19 @@ jobs:
     if: needs.detect-changes.outputs.token_service_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          TOKEN_SERVICE_VERSION: ${{ needs.detect-changes.outputs.token_service_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="taco/token-service/${{ needs.detect-changes.outputs.token_service_version }}"
-          git tag -a "$TAG" -m "Release token-service ${{ needs.detect-changes.outputs.token_service_version }}"
+          TAG="taco/token-service/${TOKEN_SERVICE_VERSION}"
+          git tag -a "$TAG" -m "Release token-service ${TOKEN_SERVICE_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -250,17 +260,19 @@ jobs:
     if: needs.detect-changes.outputs.projects_refresh_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          PROJECTS_REFRESH_VERSION: ${{ needs.detect-changes.outputs.projects_refresh_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="projects-refresh/${{ needs.detect-changes.outputs.projects_refresh_version }}"
-          git tag -a "$TAG" -m "Release projects-refresh-service ${{ needs.detect-changes.outputs.projects_refresh_version }}"
+          TAG="projects-refresh/${PROJECTS_REFRESH_VERSION}"
+          git tag -a "$TAG" -m "Release projects-refresh-service ${PROJECTS_REFRESH_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -270,17 +282,19 @@ jobs:
     if: needs.detect-changes.outputs.sidecar_changed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           token: ${{ secrets.HELM_CHARTS_PAT }}
       
       - name: Create and push tag
+        env:
+          SIDECAR_VERSION: ${{ needs.detect-changes.outputs.sidecar_version }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          TAG="sandbox-sidecar/${{ needs.detect-changes.outputs.sidecar_version }}"
-          git tag -a "$TAG" -m "Release sandbox-sidecar ${{ needs.detect-changes.outputs.sidecar_version }}"
+          TAG="sandbox-sidecar/${SIDECAR_VERSION}"
+          git tag -a "$TAG" -m "Release sandbox-sidecar ${SIDECAR_VERSION}"
           git push origin "$TAG"
           
           echo "Created and pushed tag: $TAG"
@@ -299,18 +313,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Summary
+        env:
+          BACKEND_EE_CHANGED: ${{ needs.detect-changes.outputs.backend_ee_changed }}
+          BACKEND_EE_VERSION: ${{ needs.detect-changes.outputs.backend_ee_version }}
+          DRIFT_CHANGED: ${{ needs.detect-changes.outputs.drift_changed }}
+          DRIFT_VERSION: ${{ needs.detect-changes.outputs.drift_version }}
+          UI_CHANGED: ${{ needs.detect-changes.outputs.ui_changed }}
+          UI_VERSION: ${{ needs.detect-changes.outputs.ui_version }}
+          STATESMAN_CHANGED: ${{ needs.detect-changes.outputs.statesman_changed }}
+          STATESMAN_VERSION: ${{ needs.detect-changes.outputs.statesman_version }}
+          TOKEN_SERVICE_CHANGED: ${{ needs.detect-changes.outputs.token_service_changed }}
+          TOKEN_SERVICE_VERSION: ${{ needs.detect-changes.outputs.token_service_version }}
+          PROJECTS_REFRESH_CHANGED: ${{ needs.detect-changes.outputs.projects_refresh_changed }}
+          PROJECTS_REFRESH_VERSION: ${{ needs.detect-changes.outputs.projects_refresh_version }}
+          SIDECAR_CHANGED: ${{ needs.detect-changes.outputs.sidecar_changed }}
+          SIDECAR_VERSION: ${{ needs.detect-changes.outputs.sidecar_version }}
         run: |
           echo "## Auto-tagging Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Changed | New Version |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|---------|-------------|" >> $GITHUB_STEP_SUMMARY
-          echo "| backend_ee | ${{ needs.detect-changes.outputs.backend_ee_changed }} | ${{ needs.detect-changes.outputs.backend_ee_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| drift | ${{ needs.detect-changes.outputs.drift_changed }} | ${{ needs.detect-changes.outputs.drift_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| ui | ${{ needs.detect-changes.outputs.ui_changed }} | ${{ needs.detect-changes.outputs.ui_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| statesman | ${{ needs.detect-changes.outputs.statesman_changed }} | ${{ needs.detect-changes.outputs.statesman_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| token-service | ${{ needs.detect-changes.outputs.token_service_changed }} | ${{ needs.detect-changes.outputs.token_service_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| projects-refresh | ${{ needs.detect-changes.outputs.projects_refresh_changed }} | ${{ needs.detect-changes.outputs.projects_refresh_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| sidecar | ${{ needs.detect-changes.outputs.sidecar_changed }} | ${{ needs.detect-changes.outputs.sidecar_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| backend_ee | ${BACKEND_EE_CHANGED} | ${BACKEND_EE_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| drift | ${DRIFT_CHANGED} | ${DRIFT_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ui | ${UI_CHANGED} | ${UI_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| statesman | ${STATESMAN_CHANGED} | ${STATESMAN_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| token-service | ${TOKEN_SERVICE_CHANGED} | ${TOKEN_SERVICE_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| projects-refresh | ${PROJECTS_REFRESH_CHANGED} | ${PROJECTS_REFRESH_VERSION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| sidecar | ${SIDECAR_CHANGED} | ${SIDECAR_VERSION} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Tags have been created and pushed. Build workflows will trigger automatically." >> $GITHUB_STEP_SUMMARY
 

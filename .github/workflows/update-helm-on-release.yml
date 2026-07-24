@@ -24,8 +24,9 @@ jobs:
       - name: Determine service and version from tag
         id: parse-tag
         env:
-          TAG_NAME: ${{ github.event.workflow_run.head_branch }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
+          TAG_NAME="$HEAD_BRANCH"
           echo "Tag name: $TAG_NAME"
           
           # Parse tag to determine service and version
@@ -67,14 +68,14 @@ jobs:
           safe_service=$(printf '%s' "$SERVICE" | tr -d '\n\r')
           safe_version=$(printf '%s' "$VERSION" | tr -d '\n\r')
           safe_yaml_path=$(printf '%s' "$YAML_PATH" | tr -d '\n\r')
-          echo "service=$safe_service" >> "$GITHUB_OUTPUT"
-          echo "version=$safe_version" >> "$GITHUB_OUTPUT"
-          echo "yaml_path=$safe_yaml_path" >> "$GITHUB_OUTPUT"
+          echo "service=$safe_service" >> $GITHUB_OUTPUT
+          echo "version=$safe_version" >> $GITHUB_OUTPUT
+          echo "yaml_path=$safe_yaml_path" >> $GITHUB_OUTPUT
           echo "Detected: service=$safe_service, version=$safe_version"
       
       - name: Checkout helm charts repo
         if: steps.parse-tag.outputs.service != ''
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: diggerhq/opentaco-helm-charts
           token: ${{ secrets.HELM_CHARTS_PAT }}

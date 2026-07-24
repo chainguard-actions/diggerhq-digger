@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0  # Need full history to check file changes
 
@@ -32,9 +32,8 @@ jobs:
 
       - name: Install Atlas CLI
         run: |
-          curl -sSfL https://atlasgo.sh -o /tmp/atlasgo-install.sh
-          sh /tmp/atlasgo-install.sh
-          rm /tmp/atlasgo-install.sh
+          curl -sSfL https://release.ariga.io/atlas/atlas-linux-amd64-latest -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
           atlas version
 
       - name: Install Atlas GORM Provider

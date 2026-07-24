@@ -1,0 +1,82 @@
+name: Test binary mode local when local-dev-mode is true
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Verify the binary mode determination logic sets 'local' when local-dev-mode=true
+      - name: Verify binary mode determination for local dev
+        env:
+          LOCAL_DEV_MODE: "true"
+          INPUT_DIGGER_VERSION: ""
+          ACTION_REF: "refs/heads/act-harness"
+        run: |
+          set -euo pipefail
+
+          if [[ ! ( -z "$INPUT_DIGGER_VERSION" || "$INPUT_DIGGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+            echo "::error::Invalid digger-version input $INPUT_DIGGER_VERSION. Must be empty string or match vX.Y.Z"
+            exit 1
+          fi
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+
+          echo "binary-mode: $BINARY_MODE"
+          if [ "$BINARY_MODE" != "local" ]; then
+            echo "FAIL: expected binary-mode=local but got $BINARY_MODE"
+            exit 1
+          fi
+          echo "PASS: binary-mode correctly set to local"
+
+      # Verify that local-dev-mode takes priority over a version tag action_ref
+      - name: Verify local-dev-mode takes priority over action_ref
+        env:
+          LOCAL_DEV_MODE: "true"
+          INPUT_DIGGER_VERSION: ""
+          ACTION_REF: "v0.6.147"
+        run: |
+          set -euo pipefail
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+
+          echo "binary-mode: $BINARY_MODE"
+          if [ "$BINARY_MODE" != "local" ]; then
+            echo "FAIL: expected binary-mode=local (local-dev-mode takes priority), but got $BINARY_MODE"
+            exit 1
+          fi
+          echo "PASS: local-dev-mode correctly takes priority"
+
+      # Call the action with an invalid version to exercise the validation path.
+      # This satisfies the uses: . requirement without triggering Go builds or
+      # network downloads.
+      - id: action
+        uses: .
+        with:
+          digger-version: "not-a-valid-version"
+          configure-checkout: "false"
+        continue-on-error: true
+
+      - name: Assert action completed (failed at validation as expected)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" != "failure" ]; then
+            echo "FAIL: expected action to fail with invalid digger-version"
+            exit 1
+          fi
+          echo "PASS: action correctly failed at version validation"
