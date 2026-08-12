@@ -1,0 +1,30 @@
+---
+title: "PR-level locks"
+---
+
+PR-level locking prevents concurrent infrastructure operations from different pull requests from overriding each other.
+
+When you run with the OpenTaco backend/orchestrator, PR locks are stored in the backend database (`digger_locks`) automatically. No additional lock storage setup is required.
+
+## Disabling PR-level locks
+
+In order to disable locking repo wide you can add a top-level flag to your digger.yml:
+
+```
+pr_locks: false
+
+projects:
+   - name: dev
+     dir: dev/
+```
+
+## Backendless mode only
+
+When using backendless mode (`no-backend: true`), there is no backend DB for lock state. In that mode, configure cloud-provider lock storage:
+
+
+| Cloud Provider | Resource Type   | Configuration details Link |
+|----------------|-----------------|------|
+| AWS            | DynamoDB        | [here](/ce/cloud-providers/aws) |
+| GCP            | GCP Bucket      | [here](/ce/gcp/using-gcp-bucket-for-locks) |
+| Azure          | Storage Tables  | [here](/ce/azure-specific/azure-devops-locking-connection-methods) |

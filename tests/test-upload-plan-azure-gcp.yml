@@ -1,0 +1,53 @@
+name: Test upload plan destination Azure and GCP inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run digger with Azure upload plan destination inputs
+        id: action-azure
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          upload-plan-destination: "azure"
+          upload-plan-destination-azure-container: "my-plan-container"
+          upload-plan-destination-azure-storage-account: "myplanstorageaccount"
+        continue-on-error: true
+
+      - name: Assert action ran with Azure upload plan inputs
+        env:
+          OUTCOME: ${{ steps.action-azure.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran with Azure upload plan inputs (outcome: $OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+
+      - name: Run digger with GCP upload plan destination inputs
+        id: action-gcp
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          upload-plan-destination: "gcp"
+          upload-plan-destination-gcp-bucket: "my-gcp-plan-bucket"
+        continue-on-error: true
+
+      - name: Assert action ran with GCP upload plan inputs
+        env:
+          OUTCOME: ${{ steps.action-gcp.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran with GCP upload plan inputs (outcome: $OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi

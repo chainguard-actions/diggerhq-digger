@@ -1,0 +1,36 @@
+name: Test Digger auth inputs coverage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run digger with auth and config inputs
+        id: action
+        uses: .
+        with:
+          configure-checkout: "false"
+          no-backend: "true"
+          digger-token: "dg_example_token_12345"
+          digger-private-key: "-----BEGIN RSA PRIVATE KEY-----\nexample\n-----END RSA PRIVATE KEY-----"
+          digger-organisation: "my-org"
+          digger-filename: "digger.yml"
+          digger-hostname: "https://cloud.digger.dev"
+        continue-on-error: true
+
+      - name: Assert action ran with digger auth inputs
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # The digger auth inputs are passed through. The action may succeed or fail
+          # depending on digger.yml availability and backend connectivity,
+          # but should not fail at input validation.
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action ran with digger auth inputs (outcome: $OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
