@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "taco-statesman.fullname" . }}
+  labels:
+    {{- include "taco-statesman.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.taco.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "taco-statesman.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "taco-statesman.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if and .Values.taco.cloudSql .Values.taco.cloudSql.enabled }}
+      serviceAccountName: {{ .Values.taco.cloudSql.serviceAccount | default "default" }}
+      {{- end }}
+      {{- if .Values.global }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.global.imageRegistry | default "ghcr.io/diggerhq/digger" }}/{{ .Values.taco.image.repository }}:{{ .Values.taco.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.taco.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.taco.service.port }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                {{- if .Values.taco.secret.useExistingSecret }}
+                name: {{ .Values.taco.secret.existingSecretName }}
+                {{- else }}
+                name: {{ include "taco-statesman.fullname" . }}-secret
+                {{- end }}
+          env:
+            - name: OPENTACO_PORT
+              value: "{{ .Values.taco.service.port }}"
+            - name: OPENTACO_STORAGE
+              value: "{{ .Values.taco.storage.type }}"
+            {{- if .Values.taco.auth.disable }}
+            - name: OPENTACO_AUTH_DISABLE
+              value: "true"
+            {{- end }}
+            {{- if .Values.taco.postgres.existingSecretName }}
+            - name: OPENTACO_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.taco.postgres.existingSecretName }}
+                  key: {{ .Values.taco.postgres.existingSecretKey }}
+            {{- end }}
+            {{- with .Values.taco.customEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          {{- with .Values.taco.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if and .Values.taco.cloudSql .Values.taco.cloudSql.enabled }}
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            - "{{ .Values.taco.cloudSql.instanceConnectionName }}"
+          securityContext:
+            runAsNonRoot: true
+          {{- if .Values.taco.cloudSql.credentialsSecret }}
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /secrets/cloudsql/credentials.json
+          volumeMounts:
+            - name: cloudsql-credentials
+              mountPath: /secrets/cloudsql
+              readOnly: true
+          {{- end }}
+      volumes:
+        - name: cloudsql-credentials
+          secret:
+            secretName: {{ .Values.taco.cloudSql.credentialsSecret }}
+      {{- end }}
+      {{- with .Values.taco.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.taco.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.taco.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

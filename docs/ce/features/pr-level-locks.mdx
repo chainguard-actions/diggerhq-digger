@@ -1,0 +1,31 @@
+---
+title: "PR-level locks"
+---
+
+For every pull request we perform a lock when the pull request is opened and unlocked when the pull request is merged, this is to avoid making a single apply override another apply in a different PR.
+Since digger is primarily being used to apply while the PR is open this locking guarantees that no two PRs can wipe off eachother's changes due to human errors.
+When digger is using with a backend the locks are stored in the database directly in a table called digger_locks. No further configuration is needed.
+
+## Disabling PR-level locks
+
+In order to disable locking repo wide you can add a top-level flag to your digger.yml:
+
+```
+pr_locks: false
+
+projects:
+   - name: dev
+     dir: dev/
+```
+
+## Backendless mode
+
+When using digger in backendless mode there is no backend or DB to store the locks information. In this case we have implemented integrations with several
+cloud provider resources to store the state of PR locks. The table below summarises the different locking methods available when using backendless mode:
+
+
+| Cloud Provider | Resource Type   | Configuration details Link |
+|----------------|-----------------|------|
+| AWS            | DynamoDB        | [here](/ce/cloud-providers/aws) |
+| GCP            | GCP Bucket      | [here](/ce/gcp/using-gcp-bucket-for-locks) |
+| Azure          | Storage Tables  | [here](/ce/azure-specific/azure-devops-locking-connection-methods) |
