@@ -1,0 +1,28 @@
+---
+title: "Backendless: GitHub Issues"
+description: "Use GitHub Issues as a drift notification sink in Backendless GitHub Actions mode"
+---
+
+## Mode: Backendless GitHub Actions
+
+Use this integration when drift detection runs in Backendless mode.
+
+You can create a GitHub Issue whenever drift is detected, so remediation follows your normal triage workflow. Another notification path is [Slack](/ce/drift/slack-notifications).
+
+
+## Enable in GitHub Actions
+
+Add the following to your drift workflow:
+
+```yml
+env:
+  GITHUB_CONTEXT: ${{ toJson(github) }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  INPUT_DRIFT_GITHUB_ISSUES: 'true'
+  # Optional: DIGGER_GITHUB_TOKEN or PAT with appropriate scopes
+```
+
+## Notes
+
+- Ensure the token has permission to create issues in the repository.
+- The issue records the project(s) with drift and links back to context for quick follow-up.
