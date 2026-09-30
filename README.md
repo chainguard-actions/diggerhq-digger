@@ -14,6 +14,7 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 | v0.6.148 | [`v0.6.148`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.148) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) |
 | v0.6.149 | [`v0.6.149`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.149) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) |
 | v0.6.151 | [`v0.6.151`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.151) | [`85cd59d`](https://github.com/diggerhq/digger/commit/85cd59db7caa3d8bf6cefe303a62c12812b0bc48) |
+| v0.6.152 | [`v0.6.152`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.152) | [`9ac4e22`](https://github.com/diggerhq/digger/commit/9ac4e2237b7b8afa455f422b92737bfe106d495c) |
 | vtest-token | [`vtest-token`](https://github.com/chainguard-actions/diggerhq-digger/tree/vtest-token) | [`7179f98`](https://github.com/diggerhq/digger/commit/7179f98aca019d87e16d6f5d0a087886aac33747) |
 
 ## Privacy
