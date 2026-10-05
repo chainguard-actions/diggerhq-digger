@@ -396,7 +396,7 @@ runs:
         echo "TF_PLUGIN_CACHE_DIR=$safe" >> "$GITHUB_ENV"
         echo "TG_PROVIDER_CACHE_DIR=$safe" >> "$GITHUB_ENV"
         echo "TERRAGRUNT_PROVIDER_CACHE_DIR=$safe" >> "$GITHUB_ENV"
-    - uses: chainguard-actions/actions-cache/restore@38c9e2f39b3b539d2c7bdb22ccc9cb381ee084b7 # v6.1.0
+    - uses: chainguard-actions/actions-cache/restore@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
       id: restore_cache
       name: restore_cache
       with:
@@ -533,7 +533,7 @@ runs:
       shell: bash
       if: ${{ steps.determine-binary-mode.outputs.binary-mode != 'prebuilt' }}
     - name: Adding required env vars for next step
-      uses: chainguard-actions/actions-github-script@59cd9717974bea467a79587570a7ca4501543bb6 # v9.0.0
+      uses: chainguard-actions/actions-github-script@90ea3578c9f973abcd1e50255ba3c1cd19216b51 # v9.0.0
       env:
         github-token: $GITHUB_TOKEN
       with:
@@ -667,7 +667,7 @@ runs:
       id: digger-local-run
       shell: bash
       run: "set -euo pipefail\n\ncd $GITHUB_WORKSPACE\n\necho \"\U0001F680 Running digger...\"\nRAW=\"$INPUT_LOCAL_DEV_CLI_PATH\"\n\n# Validate path to prevent command injection\nif [[ \"$RAW\" =~ [^a-zA-Z0-9_./-] ]]; then\n  echo \"❌ Invalid characters in local-dev-cli-path\"\n  exit 1\nfi\n\nif [[ \"$RAW\"  =~ \\.\\. || \"$RAW\" == : || \"$RAW\" != /* ]]; then\n  echo \"❌ traversal/colon/relative not allowed\"; exit 1\nfi        \n\nDIR=$(realpath -- \"$RAW\") || { echo \"❌ not found\"; exit 1; }\n[[ -d \"$DIR\" ]] || { echo \"❌ not a dir\"; exit 1; }        \n\nBIN=\"$DIR/digger\"\n[[ -x \"$BIN\" ]] || { echo \"❌ digger not executable at $BIN\"; exit 1; }        \n\n$BIN\necho \"✅ digger completed\"\n"
-    - uses: chainguard-actions/actions-cache/save@38c9e2f39b3b539d2c7bdb22ccc9cb381ee084b7 # v6.1.0
+    - uses: chainguard-actions/actions-cache/save@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
       name: cache-save
       if: ${{ always() && inputs.cache-dependencies == 'true' && steps.restore_cache.outputs.cache-hit != 'true' }}
       with:
