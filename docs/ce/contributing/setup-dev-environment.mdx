@@ -1,0 +1,52 @@
+---
+title: "Contributor setup"
+description: "Docker Compose first, then run selected services outside Docker for faster iteration."
+---
+
+Use this page for contributor-oriented setup. For app runtime workflows (Compose baseline, ngrok, hybrid host+Docker mode, and URL matrices), use [Local development overview](/ce/local-development/overview).
+
+## Start from Docker Compose
+
+```bash
+cp self-hosting/docker-compose/orchestrator.env.example self-hosting/docker-compose/orchestrator.env
+cp self-hosting/docker-compose/drift.env.example self-hosting/docker-compose/drift.env
+cp self-hosting/docker-compose/sidecar.env.example self-hosting/docker-compose/sidecar.env
+cp self-hosting/docker-compose/ui.env.example self-hosting/docker-compose/ui.env
+
+# from repo root
+make -C self-hosting/docker-compose all-up
+
+# or run from the compose directory
+# cd self-hosting/docker-compose
+# make all-up
+```
+
+For required values and shared-secret alignment, use [Self-hosting Configuration](/self-hosting/configuration).
+
+## Service guides
+
+- [UI local setup](/ce/local-development/ui)
+- [Statesman local setup](/ce/local-development/statesman)
+- [Orchestrator (backend) local setup](/ce/local-development/backend)
+- [GitHub App settings for local dev](/ce/local-development/github-app)
+
+If you are testing callbacks, follow ngrok guidance in [UI local setup](/ce/local-development/ui).
+
+## CLI local testing
+
+For CLI changes, you can still test quickly with a self-hosted GitHub Actions runner and a locally built CLI binary. This is the same Digger CLI binary that normally runs inside your GitHub Actions workflow.
+
+```bash
+cd cli
+go build -o digger ./cmd/digger
+chmod +x digger
+```
+
+Then set these action inputs in your workflow step:
+
+```yaml
+local-dev-mode: "true"
+local-dev-cli-path: "/absolute/path/to/cli"
+```
+
+`local-dev-cli-path` should be the directory containing the built binary.

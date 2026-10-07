@@ -1,0 +1,58 @@
+---
+title: GitHub App settings for local dev
+---
+
+Use these settings when connecting a GitHub App to your local stack (tunneled via the UI domain).
+
+You must create and install this GitHub App in both setups: when Orchestrator/Drift run in Docker and when they run directly on your host.
+
+## Recommended: create the app with the backend wizard first
+
+Use the backend wizard as the primary path for local development.
+
+- Open the UI-proxied setup endpoint: `https://<your-public-ui-domain>/orchestrator/github/setup` (or `http://localhost:3030/orchestrator/github/setup` when running UI locally).
+- The wizard generates a GitHub App manifest JSON payload for you.
+- Continue the GitHub setup flow from that manifest, then copy the app install URL into `ORCHESTRATOR_GITHUB_APP_URL` in `ui/.env.local`.
+
+![Backend GitHub app setup wizard for local development](/images/contributing/local-dev--gh-app-setup.png)
+
+Needed backend env vars:
+
+- `PUBLIC_BASE_URL` set to a reachable public URL
+- `INTERNAL_BASE_URL` set to the backend internal service URL
+- Optional: `GITHUB_ORG` to scope setup to a specific org
+
+<Note>
+For the end-to-end GitHub setup flow, see [Set up GitHub App](/onboarding/github-app-setup). In local dev, the key difference is that you start from the backend wizard manifest JSON instead of going directly to the hosted OpenTaco GitHub App install link.
+</Note>
+
+## App credentials from GitHub
+
+After app creation, GitHub shows credentials (including app ID and client ID). Copy these into your backend/drift environment configuration (for example `self-hosting/docker-compose/orchestrator.env` and `self-hosting/docker-compose/drift.env`):
+
+- `GITHUB_APP_ID`
+- `GITHUB_APP_CLIENT_ID`
+- `GITHUB_APP_CLIENT_SECRET`
+- `GITHUB_APP_PRIVATE_KEY_BASE64`
+- `GITHUB_WEBHOOK_SECRET`
+
+Restart orchestrator and drift after updating these values so the new credentials are picked up.
+
+![GitHub app credentials after local setup](/images/contributing/local-dev--gh-app-creds.png)
+
+## Install the app on repositories
+
+After creating the app, open its install link (for example `https://github.com/apps/<app-name>/installations/new`) and install it to your org or user account.
+
+During install, choose repository scope:
+
+- **All repositories** for broad testing
+- **Only select repositories** for safer local iteration
+
+Then set `ORCHESTRATOR_GITHUB_APP_URL` in `ui/.env.local` to the same install link so the UI "Connect with GitHub" action points to your app.
+
+## Troubleshooting
+
+- **404 on connect**: `ORCHESTRATOR_GITHUB_APP_URL` not set or points to a non-existent path.
+- **Callbacks fail**: UI not exposed publicly; tunnel the UI port and update callback/webhook URLs to that domain.
+- **Backend rejects /api/github/link**: ensure `DIGGER_ENABLE_API_ENDPOINTS=true` and `DIGGER_INTERNAL_SECRET` matches the UI `ORCHESTRATOR_BACKEND_SECRET`.

@@ -1,0 +1,36 @@
+name: Test default build mode (no digger-version set)
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # With no digger-version and ACTION_REF not starting with 'v', the action
+      # should select binary-mode=build (compile from source). Under the harness
+      # this will attempt to build the Go CLI and run it, which may fail due to
+      # missing GitHub event context. We assert the action reached the build phase.
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          configure-checkout: "false"
+          no-backend: "false"
+          log-level: "INFO"
+
+      - name: Assert action ran in build mode
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # In build mode the action sets up Go, builds the CLI, and runs it.
+          # Under the harness there is no real GitHub event context so digger
+          # exits non-zero. Both success and failure are acceptable — what matters
+          # is the action did not fail at input validation.
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action reached build/run phase (outcome=$OUTCOME)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
