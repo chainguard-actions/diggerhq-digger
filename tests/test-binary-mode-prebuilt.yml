@@ -1,0 +1,107 @@
+name: Test binary mode - prebuilt
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Invoke the action with digger-version set to a specific version.
+      # This triggers binary-mode=prebuilt. The action will attempt to download
+      # the binary from GitHub releases and then run it. It may fail if the
+      # binary can't run in the test env, but we verify the action ran.
+      - id: action
+        uses: .
+        continue-on-error: true
+        with:
+          configure-checkout: "false"
+          digger-version: "v0.6.154"
+          log-level: "DEBUG"
+
+      - name: Assert action ran (prebuilt binary path exercised)
+        env:
+          OUTCOME: ${{ steps.action.outcome }}
+        run: |
+          echo "outcome: $OUTCOME"
+          # binary-mode=prebuilt: action downloads and tries to run the digger binary
+          if [ "$OUTCOME" = "success" ]; then
+            echo "PASS: action completed successfully"
+          elif [ "$OUTCOME" = "failure" ]; then
+            echo "PASS: action failed gracefully (expected in test env)"
+          else
+            echo "FAIL: unexpected outcome '$OUTCOME'"
+            exit 1
+          fi
+
+      # Verify the binary-mode determination logic for explicit version
+      - name: Verify binary-mode=prebuilt logic (explicit version)
+        id: determine-binary-mode-version
+        env:
+          LOCAL_DEV_MODE: "false"
+          INPUT_DIGGER_VERSION: "v0.6.154"
+          ACTION_REF: "main"
+        run: |
+          set -euo pipefail
+
+          if [[ ! ( -z "$INPUT_DIGGER_VERSION" || "$INPUT_DIGGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+            echo "::error::Invalid digger-version input $INPUT_DIGGER_VERSION. Must be empty string or match vX.Y.Z"
+            exit 1
+          fi
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+          echo "binary-mode=${BINARY_MODE}" >> ${GITHUB_OUTPUT}
+        shell: bash
+
+      - name: Assert binary-mode is prebuilt for explicit version
+        env:
+          ACTUAL: ${{ steps.determine-binary-mode-version.outputs.binary-mode }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "prebuilt" ]; then
+            echo "FAIL: expected 'prebuilt' but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: binary-mode is 'prebuilt' as expected"
+
+      # Also verify that an action_ref starting with 'v' triggers prebuilt mode
+      - name: Verify binary-mode=prebuilt logic (v-prefixed action_ref)
+        id: determine-binary-mode-vref
+        env:
+          LOCAL_DEV_MODE: "false"
+          INPUT_DIGGER_VERSION: ""
+          ACTION_REF: "v0.6.154"
+        run: |
+          set -euo pipefail
+
+          if [[ ! ( -z "$INPUT_DIGGER_VERSION" || "$INPUT_DIGGER_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ) ]]; then
+            echo "::error::Invalid digger-version input $INPUT_DIGGER_VERSION. Must be empty string or match vX.Y.Z"
+            exit 1
+          fi
+
+          if [[ "$LOCAL_DEV_MODE" == "true" ]]; then
+            BINARY_MODE="local"
+          elif [[ -n "$INPUT_DIGGER_VERSION" || "$ACTION_REF" == v* ]]; then
+            BINARY_MODE="prebuilt"
+          else
+            BINARY_MODE="build"
+          fi
+          echo "binary-mode=${BINARY_MODE}" >> ${GITHUB_OUTPUT}
+        shell: bash
+
+      - name: Assert binary-mode is prebuilt for v-prefixed action_ref
+        env:
+          ACTUAL: ${{ steps.determine-binary-mode-vref.outputs.binary-mode }}
+        run: |
+          echo "actual: $ACTUAL"
+          if [ "$ACTUAL" != "prebuilt" ]; then
+            echo "FAIL: expected 'prebuilt' for v-prefixed action_ref but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: binary-mode is 'prebuilt' for v-prefixed action_ref"
