@@ -6,18 +6,18 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 ## Versions
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v0.6.145 | [`v0.6.145`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.145) | [`865b780`](https://github.com/diggerhq/digger/commit/865b7802e1eb6cce87c4e0d5a832191a1c70cc83) |
-| v0.6.146 | [`v0.6.146`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.146) | [`fbd0503`](https://github.com/diggerhq/digger/commit/fbd0503ecf6ba0cff4222f7af0a37433a29ebab4) |
-| v0.6.147 | [`v0.6.147`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.147) | [`6baf84c`](https://github.com/diggerhq/digger/commit/6baf84cd9cd7c6522b98504f4a2258474d6c2de3) |
-| v0.6.148 | [`v0.6.148`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.148) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) |
-| v0.6.149 | [`v0.6.149`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.149) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) |
-| v0.6.151 | [`v0.6.151`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.151) | [`85cd59d`](https://github.com/diggerhq/digger/commit/85cd59db7caa3d8bf6cefe303a62c12812b0bc48) |
-| v0.6.152 | [`v0.6.152`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.152) | [`9ac4e22`](https://github.com/diggerhq/digger/commit/9ac4e2237b7b8afa455f422b92737bfe106d495c) |
-| v0.6.153 | [`v0.6.153`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.153) | [`cba25f8`](https://github.com/diggerhq/digger/commit/cba25f8d011e134f088c27125973e9257fb4999a) |
-| v0.6.154 | [`v0.6.154`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.154) | [`853f6ab`](https://github.com/diggerhq/digger/commit/853f6abf3f7ad9d2fa20b8956e5a758441ddca1e) |
-| vtest-token | [`vtest-token`](https://github.com/chainguard-actions/diggerhq-digger/tree/vtest-token) | [`7179f98`](https://github.com/diggerhq/digger/commit/7179f98aca019d87e16d6f5d0a087886aac33747) |
+| Version | Tag | Upstream commit | Hardening report |
+|---------|-----|-----------------|------------------|
+| v0.6.145 | [`v0.6.145`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.145) | [`865b780`](https://github.com/diggerhq/digger/commit/865b7802e1eb6cce87c4e0d5a832191a1c70cc83) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.145/HARDENING.md) |
+| v0.6.146 | [`v0.6.146`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.146) | [`fbd0503`](https://github.com/diggerhq/digger/commit/fbd0503ecf6ba0cff4222f7af0a37433a29ebab4) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.146/HARDENING.md) |
+| v0.6.147 | [`v0.6.147`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.147) | [`6baf84c`](https://github.com/diggerhq/digger/commit/6baf84cd9cd7c6522b98504f4a2258474d6c2de3) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.147/HARDENING.md) |
+| v0.6.148 | [`v0.6.148`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.148) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.148/HARDENING.md) |
+| v0.6.149 | [`v0.6.149`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.149) | [`3053cda`](https://github.com/diggerhq/digger/commit/3053cda26247aa3cb94dcd4b8a253ee3cbc78243) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.149/HARDENING.md) |
+| v0.6.151 | [`v0.6.151`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.151) | [`85cd59d`](https://github.com/diggerhq/digger/commit/85cd59db7caa3d8bf6cefe303a62c12812b0bc48) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.151/HARDENING.md) |
+| v0.6.152 | [`v0.6.152`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.152) | [`9ac4e22`](https://github.com/diggerhq/digger/commit/9ac4e2237b7b8afa455f422b92737bfe106d495c) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.152/HARDENING.md) |
+| v0.6.153 | [`v0.6.153`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.153) | [`cba25f8`](https://github.com/diggerhq/digger/commit/cba25f8d011e134f088c27125973e9257fb4999a) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.153/HARDENING.md) |
+| v0.6.154 | [`v0.6.154`](https://github.com/chainguard-actions/diggerhq-digger/tree/v0.6.154) | [`853f6ab`](https://github.com/diggerhq/digger/commit/853f6abf3f7ad9d2fa20b8956e5a758441ddca1e) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/v0.6.154/HARDENING.md) |
+| vtest-token | [`vtest-token`](https://github.com/chainguard-actions/diggerhq-digger/tree/vtest-token) | [`7179f98`](https://github.com/diggerhq/digger/commit/7179f98aca019d87e16d6f5d0a087886aac33747) | [`HARDENING.md`](https://github.com/chainguard-actions/diggerhq-digger/blob/vtest-token/HARDENING.md) |
 
 ## Privacy
 
