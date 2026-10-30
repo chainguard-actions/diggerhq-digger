@@ -1,0 +1,96 @@
+name: Test local dev mode passes upload/digger/cloud inputs to digger env
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create fake digger binary
+        run: |
+          rm -rf /tmp/fake-digger-upload
+          mkdir -p /tmp/fake-digger-upload
+          cat > /tmp/fake-digger-upload/digger <<'EOF'
+          #!/bin/bash
+          {
+            echo "PLAN_UPLOAD_DESTINATION=$PLAN_UPLOAD_DESTINATION"
+            echo "AWS_S3_BUCKET=$AWS_S3_BUCKET"
+            echo "PLAN_UPLOAD_S3_ENCRYPTION_ENABLED=$PLAN_UPLOAD_S3_ENCRYPTION_ENABLED"
+            echo "PLAN_UPLOAD_S3_ENCRYPTION_TYPE=$PLAN_UPLOAD_S3_ENCRYPTION_TYPE"
+            echo "PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID=$PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID"
+            echo "PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME=$PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME"
+            echo "PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME=$PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME"
+            echo "GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET=$GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET"
+            echo "GOOGLE_STORAGE_LOCK_BUCKET=$GOOGLE_STORAGE_LOCK_BUCKET"
+            echo "DIGGER_FILENAME=$DIGGER_FILENAME"
+            echo "DIGGER_ORGANISATION=$DIGGER_ORGANISATION"
+            echo "DIGGER_TOKEN=$DIGGER_TOKEN"
+            echo "DIGGER_PRIVATE_KEY=$DIGGER_PRIVATE_KEY"
+            echo "DIGGER_HOSTNAME=$DIGGER_HOSTNAME"
+          } > /tmp/fake-digger-upload/out.env
+          echo "fake digger ran"
+          EOF
+          chmod +x /tmp/fake-digger-upload/digger
+      - id: action
+        uses: .
+        with:
+          local-dev-mode: "true"
+          local-dev-cli-path: /tmp/fake-digger-upload
+          configure-checkout: "false"
+          upload-plan-destination: aws
+          upload-plan-destination-s3-bucket: my-plan-bucket
+          upload-plan-destination-s3-encryption-enabled: "true"
+          upload-plan-destination-s3-encryption-type: KMS
+          upload-plan-destination-s3-encryption-kms-key-id: kms-key-123
+          upload-plan-destination-azure-container: my-container
+          upload-plan-destination-azure-storage-account: mystorageacct
+          upload-plan-destination-gcp-bucket: my-gcp-bucket
+          google-lock-bucket: my-lock-bucket
+          digger-filename: digger-alt.yml
+          digger-organisation: my-org
+          digger-token: test-digger-token
+          digger-private-key: test-private-key
+          digger-hostname: https://digger.example.com
+          # Cloud credential inputs are passed, but their setup toggles are off,
+          # so the corresponding auth steps must be skipped.
+          setup-aws: "false"
+          aws-access-key-id: AKIAEXAMPLE
+          aws-secret-access-key: secretexample
+          aws-role-to-assume: arn:aws:iam::123456789012:role/example
+          aws-web-identity-token-file: /tmp/token-file
+          setup-azure: "false"
+          azure-client-id: 00000000-0000-0000-0000-000000000001
+          azure-tenant-id: 00000000-0000-0000-0000-000000000002
+          azure-subscription-id: 00000000-0000-0000-0000-000000000003
+          setup-google-cloud: "false"
+          google-auth-credentials: "{}"
+          google-service-account: sa@example.iam.gserviceaccount.com
+      - name: Assert fake digger received expected env
+        run: |
+          F=/tmp/fake-digger-upload/out.env
+          if [ ! -f "$F" ]; then
+            echo "FAIL: fake digger was not executed"
+            exit 1
+          fi
+          cat "$F"
+          check() {
+            if ! grep -qxF "$1" "$F"; then
+              echo "FAIL: expected line '$1'"
+              exit 1
+            fi
+          }
+          check "PLAN_UPLOAD_DESTINATION=aws"
+          check "AWS_S3_BUCKET=my-plan-bucket"
+          check "PLAN_UPLOAD_S3_ENCRYPTION_ENABLED=true"
+          check "PLAN_UPLOAD_S3_ENCRYPTION_TYPE=KMS"
+          check "PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID=kms-key-123"
+          check "PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME=my-container"
+          check "PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME=mystorageacct"
+          check "GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET=my-gcp-bucket"
+          check "GOOGLE_STORAGE_LOCK_BUCKET=my-lock-bucket"
+          check "DIGGER_FILENAME=digger-alt.yml"
+          check "DIGGER_ORGANISATION=my-org"
+          check "DIGGER_TOKEN=test-digger-token"
+          check "DIGGER_PRIVATE_KEY=test-private-key"
+          check "DIGGER_HOSTNAME=https://digger.example.com"
+          echo "PASS"

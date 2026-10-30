@@ -1,0 +1,186 @@
+# Production values for OpenTaco
+# Copy this file and customize for your environment.
+
+global:
+  imageRegistry: ghcr.io/diggerhq
+  imagePullPolicy: IfNotPresent
+
+# ============================================================================
+# Database strategy
+# ============================================================================
+# Option 1: Bring your own Postgres (in-cluster or external)
+# Option 2: Use Cloud SQL (configure per service below)
+
+# ============================================================================
+# Taco Orchestrator
+# ============================================================================
+taco-orchestrator:
+  enabled: true
+  digger:
+    replicaCount: 2
+    serviceAccount:
+      # Set false to use an externally managed SA (recommended for IRSA/WI).
+      create: false
+      name: "taco-orchestrator" # CHANGE THIS if needed
+      annotations:
+        # Workload Identity example:
+        # iam.gke.io/gcp-service-account: taco-orchestrator@YOUR-PROJECT-ID.iam.gserviceaccount.com
+    workloadIdentity:
+      enabled: false
+      gcpTokenAudience: ""
+    cloudSql:
+      enabled: true
+      instanceConnectionName: "YOUR-PROJECT-ID:YOUR-REGION:YOUR-INSTANCE"
+      credentialsSecret: "cloudsql-credentials"
+      serviceAccount: "" # Deprecated: use digger.serviceAccount.name
+    # Use localhost when Cloud SQL proxy sidecar is enabled.
+    postgres:
+      host: "127.0.0.1"
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 1000m
+      limits:
+        memory: 4Gi
+        cpu: 4000m
+    ingress:
+      enabled: false
+
+# ============================================================================
+# Taco Statesman
+# ============================================================================
+taco-statesman:
+  enabled: true
+  taco:
+    replicaCount: 2
+    publicBaseUrl: "https://app.your-domain.com" # CHANGE THIS
+    allowXForwardedFor: true
+    secretKey: "CHANGE_THIS_TO_RANDOM_SIGNING_SECRET" # REQUIRED
+    storage:
+      type: "s3"
+      s3:
+        bucket: "opentaco-state-bucket" # CHANGE THIS
+        region: "us-central1"
+    cloudSql:
+      enabled: true
+      instanceConnectionName: "YOUR-PROJECT-ID:YOUR-REGION:YOUR-INSTANCE"
+      credentialsSecret: "cloudsql-credentials"
+      serviceAccount: "cloudsql-sa"
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 1000m
+      limits:
+        memory: 4Gi
+        cpu: 4000m
+
+# ============================================================================
+# Token Service
+# ============================================================================
+taco-token-service:
+  enabled: true
+  tokenService:
+    replicaCount: 2
+    secret:
+      useExistingSecret: true
+      existingSecretName: "token-service-secrets" # CHANGE THIS
+    database:
+      backend: postgres
+      postgres:
+        host: "127.0.0.1"
+        port: 5432
+        user: "token_svc"
+        dbname: "token_service"
+        sslmode: "disable"
+        secretName: "token-service-secrets" # CHANGE THIS
+        secretKey: "OPENTACO_TOKEN_POSTGRES_PASSWORD"
+    cloudSql:
+      enabled: true
+      instanceConnectionName: "YOUR-PROJECT-ID:YOUR-REGION:YOUR-INSTANCE"
+      credentialsSecret: "cloudsql-credentials"
+      serviceAccount: "cloudsql-sa"
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 2000m
+
+# ============================================================================
+# Drift Detection
+# ============================================================================
+taco-drift:
+  enabled: true
+  drift:
+    replicaCount: 2
+    secret:
+      useExistingSecret: true
+      existingSecretName: "drift-secrets" # CHANGE THIS
+    cronjobs:
+      enabled: true
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 2000m
+
+# ============================================================================
+# Taco Sidecar
+# ============================================================================
+taco-sidecar:
+  enabled: true
+  sidecar:
+    replicaCount: 2
+    secret:
+      useExistingSecret: true
+      existingSecretName: "taco-sidecar-secrets" # CHANGE THIS
+
+# ============================================================================
+# Taco UI
+# ============================================================================
+taco-ui:
+  enabled: true
+  ui:
+    replicaCount: 2
+    secret:
+      useExistingSecret: true
+      existingSecretName: "ui-secrets" # CHANGE THIS
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      hosts:
+        - host: app.your-domain.com # CHANGE THIS
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: opentaco-ui-tls
+          hosts:
+            - app.your-domain.com # CHANGE THIS
+    env:
+      allowedHosts: "app.your-domain.com" # CHANGE THIS
+      posthog:
+        key: ""
+        host: "https://app.posthog.com"
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 2000m
+
+# ============================================================================
+# Optional Features
+# ============================================================================
+networkPolicies:
+  enabled: true
+
+serviceMonitor:
+  enabled: false

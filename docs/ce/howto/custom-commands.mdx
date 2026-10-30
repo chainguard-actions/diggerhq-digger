@@ -1,0 +1,79 @@
+---
+title: "Custom commands"
+---
+
+You can specify custom steps using the `workflows` section in digger.yml. Handy for integration with other CLIs like infracost.
+
+```
+projects:
+- name: production
+  dir: prod
+  workflow: with-infracost
+
+workflows:
+  with-infracost:
+    plan:
+      steps:
+        - init
+        - plan
+        - run: infracost breakdown --path=. | tee -a $DIGGER_OUT
+```
+
+## Environment variables
+
+Digger makes the following environment variables available to custom commands:
+- `$DEFAULT_BRANCH`
+- `$DIGGER_OUT`
+- `$PR_BRANCH`
+- `$PROJECT_NAME`
+- `$DIGGER_PLANFILE` (the path where terraform plan file should be written)
+
+These can be used to achieve workflows like [infracost diff](/ce/howto/using-infracost)
+
+## $DIGGER_OUT
+
+If your custom command writes into a file path defined in the `$DIGGER_OUT` env variable, then its content will be appended to the comment as "additional output":
+
+![](/images/custom-command-output-infracost.png)
+
+The value of `$DIGGER_OUT` defaults to `$RUNNER_TEMP/digger-out.log`; you can change that if needed by setting the env var explicitly.
+
+## Overriding plan commands
+
+<Note>
+    This is an advanced usecase if you want to specify an entirely custom command during plan and apply phases. If you only want to use
+    plan artifacts the easiest way would be to simply configure [plan artifact persistence](/ce/howto/plan-artifacts) and you would not need to perform
+    a complete override of the plan and apply commands.
+</Note>
+You can add extra arguments to the plan command by setting the `extra_args` key in the `steps` section of the `plan` command.
+
+However in some cases if you wish to override the plan command entirely you can do it by excluding the plan in the steps and having your command specified in the run like so:
+
+```
+workflows:
+  default:
+    plan:
+      steps:
+        - init
+        # exclude plan entierly and use custom command
+        - run: terraform plan -input=false -refresh -no-color -out $DIGGER_PLANFILE
+```
+
+Note that you need to use the -out flag to write the output to the `$DIGGER_PLANFILE` env variable, since this will be used in postprocessing steps by digger.
+
+Similarly for the apply step you can use the `$DIGGER_PLANFILE` env variable to point to the plan file to apply. Note that this will only work when you have the [plan persistence](/ce/howto/store-plans-in-a-bucket)
+configured. If plan persistence is not configured, the `$DIGGER_PLANFILE` environment variable will not be set during the apply step. Here is an example with both plan and apply commands overriden:
+
+```
+workflows:
+  default:
+    plan:
+      steps:
+        - init
+        - run: terraform plan -input=false -refresh -no-color -out $DIGGER_PLANFILE
+    apply:
+      steps:
+        - init
+        - run: terraform apply -input=false -no-color $DIGGER_PLANFILE
+
+```

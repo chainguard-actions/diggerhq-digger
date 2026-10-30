@@ -1,0 +1,71 @@
+name: Test local dev mode runs provided digger binary
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create fake digger binary
+        run: |
+          rm -rf /tmp/fake-digger
+          mkdir -p /tmp/fake-digger
+          cat > /tmp/fake-digger/digger <<'EOF'
+          #!/bin/bash
+          {
+            echo "PWD=$(pwd)"
+            echo "INPUT_DIGGER_MODE=$INPUT_DIGGER_MODE"
+            echo "INPUT_DIGGER_COMMAND=$INPUT_DIGGER_COMMAND"
+            echo "INPUT_DIGGER_PROJECT=$INPUT_DIGGER_PROJECT"
+            echo "NO_BACKEND=$NO_BACKEND"
+            echo "DIGGER_LOG_LEVEL=$DIGGER_LOG_LEVEL"
+            echo "REPORTING_STRATEGY=$REPORTING_STRATEGY"
+            echo "DISABLE_LOCKING=$DISABLE_LOCKING"
+            echo "TF_PLUGIN_CACHE_DIR=$TF_PLUGIN_CACHE_DIR"
+          } > /tmp/fake-digger/out.env
+          echo "fake digger ran"
+          EOF
+          chmod +x /tmp/fake-digger/digger
+      - id: action
+        uses: .
+        with:
+          local-dev-mode: "true"
+          local-dev-cli-path: /tmp/fake-digger
+          configure-checkout: "false"
+          mode: manual
+          command: digger plan
+          project: my-project
+          no-backend: "true"
+          log-level: DEBUG
+          disable-locking: "true"
+          terraform-cache-dir: /tmp/tfcache
+      - name: Assert fake digger ran with expected env
+        run: |
+          if [ ! -f /tmp/fake-digger/out.env ]; then
+            echo "FAIL: fake digger was not executed"
+            exit 1
+          fi
+          cat /tmp/fake-digger/out.env
+          check() {
+            if ! grep -qxF "$1" /tmp/fake-digger/out.env; then
+              echo "FAIL: expected line '$1'"
+              exit 1
+            fi
+          }
+          check "INPUT_DIGGER_MODE=manual"
+          check "INPUT_DIGGER_COMMAND=digger plan"
+          check "INPUT_DIGGER_PROJECT=my-project"
+          check "NO_BACKEND=true"
+          check "DIGGER_LOG_LEVEL=DEBUG"
+          check "REPORTING_STRATEGY=comments_per_run"
+          check "DISABLE_LOCKING=true"
+          check "TF_PLUGIN_CACHE_DIR=/tmp/tfcache"
+          check "PWD=$GITHUB_WORKSPACE"
+          echo "PASS"
+      - name: Assert cache dir created
+        run: |
+          if [ ! -d "$GITHUB_WORKSPACE/cache" ]; then
+            echo "FAIL: cache dir not created"
+            exit 1
+          fi
+          echo "PASS"

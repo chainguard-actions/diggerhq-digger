@@ -1,0 +1,288 @@
+package git_utils
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"log/slog"
+	"net/url"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+func createTempDir() (string, error) {
+	tempDir, err := os.MkdirTemp("", "repo")
+	if err != nil {
+		slog.Error("Failed to create temporary directory", "error", err)
+		return "", err
+	}
+	return tempDir, nil
+}
+
+type action func(string) error
+
+const defaultGitTimeout = 30 * time.Second
+
+func CloneGitRepoAndDoAction(repoUrl string, branch string, commitHash string, token string, tokenUsername string, action action) error {
+	return CloneGitRepoAndDoActionWithTimeout(repoUrl, branch, commitHash, token, tokenUsername, defaultGitTimeout, action)
+}
+
+// CloneGitRepoAndDoActionWithTimeout overrides the per-command timeout.
+// A non-positive timeout uses the default of 30 seconds.
+func CloneGitRepoAndDoActionWithTimeout(repoUrl string, branch string, commitHash string, token string, tokenUsername string, timeout time.Duration, action action) error {
+	dir, err := createTempDir()
+	if err != nil {
+		slog.Error("Failed to create temporary directory", "error", err)
+		return err
+	}
+	defer func() {
+		slog.Debug("Removing cloned directory", "directory", dir)
+		if err := os.RemoveAll(dir); err != nil {
+			slog.Warn("Failed to remove directory", "directory", dir, "error", err)
+		}
+	}()
+
+	git := NewGitShellWithTokenAuth(dir, token, tokenUsername)
+	if timeout > 0 {
+		git.timeout = timeout
+	}
+
+	slog.Debug("Cloning git repository",
+		"repoUrl", repoUrl,
+		"branch", branch,
+		"commitHash", commitHash,
+		"directory", dir,
+		"timeout", git.timeout,
+	)
+
+	err = git.Clone(repoUrl, branch)
+	if err != nil {
+		slog.Error("Failed to clone repository",
+			"repoUrl", repoUrl,
+			"branch", branch,
+			"error", err,
+		)
+		return err
+	}
+
+	if commitHash != "" {
+		err := git.Checkout(commitHash)
+		if err != nil {
+			slog.Error("Failed to checkout commit",
+				"commitHash", commitHash,
+				"error", err,
+			)
+			return err
+		}
+	}
+
+	err = action(dir)
+	if err != nil {
+		slog.Error("Error performing action on repository", "directory", dir, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// CloneGitRepoSparseWithTimeout clones repoUrl at branch into a new temporary
+// directory and returns its path. Only blobs matching sparsePatterns
+// (gitignore-style, matched at any depth) are fetched, so a large repository
+// costs little more than its tree objects. If the sparse clone fails the
+// repository is cloned the ordinary shallow way instead. The caller owns the
+// returned directory.
+func CloneGitRepoSparseWithTimeout(repoUrl string, branch string, token string, tokenUsername string, timeout time.Duration, sparsePatterns []string) (string, error) {
+	dir, err := createTempDir()
+	if err != nil {
+		return "", err
+	}
+
+	git := NewGitShellWithTokenAuth(dir, token, tokenUsername)
+	if timeout > 0 {
+		git.timeout = timeout
+	}
+
+	err = git.CloneSparse(repoUrl, branch, sparsePatterns)
+	if err == nil {
+		return dir, nil
+	}
+
+	slog.Warn("Sparse clone failed, falling back to full shallow clone",
+		"repoUrl", repoUrl,
+		"branch", branch,
+		"error", err,
+	)
+	if err := os.RemoveAll(dir); err != nil {
+		slog.Warn("Failed to remove directory", "directory", dir, "error", err)
+	}
+	dir, err = createTempDir()
+	if err != nil {
+		return "", err
+	}
+	git = NewGitShellWithTokenAuth(dir, token, tokenUsername)
+	if timeout > 0 {
+		git.timeout = timeout
+	}
+	if err := git.Clone(repoUrl, branch); err != nil {
+		if rmErr := os.RemoveAll(dir); rmErr != nil {
+			slog.Warn("Failed to remove directory", "directory", dir, "error", rmErr)
+		}
+		return "", err
+	}
+	return dir, nil
+}
+
+type GitAuth struct {
+	Username      string
+	Password      string // Can be either password or access token
+	TokenUsername string // if set will replace x-access-token (needed for bitbucket which uses x-token-auth)
+	Token         string // x-access-token
+}
+
+type GitShell struct {
+	workDir     string
+	timeout     time.Duration
+	environment []string
+	auth        *GitAuth
+}
+
+func NewGitShell(workDir string, auth *GitAuth) *GitShell {
+	env := os.Environ()
+
+	// If authentication is provided, set up credential helper
+	if auth != nil {
+		// Add credential helper to avoid interactive password prompts
+		env = append(env, "GIT_TERMINAL_PROMPT=0")
+	}
+
+	return &GitShell{
+		workDir:     workDir,
+		timeout:     defaultGitTimeout,
+		environment: env,
+		auth:        auth,
+	}
+}
+
+func NewGitShellWithTokenAuth(workDir string, token string, tokenUsername string) *GitShell {
+	auth := GitAuth{
+		Username:      "x-access-token",
+		Password:      "",
+		TokenUsername: tokenUsername,
+		Token:         token,
+	}
+	return NewGitShell(workDir, &auth)
+}
+
+// formatAuthURL injects credentials into the Git URL
+func (g *GitShell) formatAuthURL(repoURL string) (string, error) {
+	if g.auth == nil {
+		return repoURL, nil
+	}
+
+	parsedURL, err := url.Parse(repoURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %v", err)
+	}
+
+	// Handle different auth types
+	if g.auth.Token != "" {
+		// X-Access-Token authentication
+		tokenUsername := g.auth.TokenUsername
+		if tokenUsername == "" {
+			tokenUsername = "x-access-token"
+		}
+		parsedURL.User = url.UserPassword(tokenUsername, g.auth.Token)
+	} else if g.auth.Username != "" {
+		// Username/password or personal access token
+		parsedURL.User = url.UserPassword(g.auth.Username, g.auth.Password)
+	}
+
+	return parsedURL.String(), nil
+}
+
+func (g *GitShell) runCommand(args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), g.timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = g.workDir
+	cmd.Env = g.environment
+
+	// Set up credential helper for HTTPS
+	if g.auth != nil {
+		cmd.Env = append(cmd.Env, "GIT_ASKPASS=echo")
+		if g.auth.Token != "" {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("GIT_ACCESS_TOKEN=%s", g.auth.Token))
+		}
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("git command timed out after %s: %w: %s", g.timeout, ctx.Err(), stderr.String())
+		}
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("git command failed: %w: %s", err, stderr.String())
+		}
+		return "", err
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+func (g *GitShell) Checkout(branchOrCommit string) error {
+	args := []string{"checkout"}
+	args = append(args, branchOrCommit)
+	_, err := g.runCommand(args...)
+	return err
+}
+
+// Clone with authentication
+func (g *GitShell) Clone(repoURL, branch string) error {
+	authURL, err := g.formatAuthURL(repoURL)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"clone"}
+	if branch != "" {
+		args = append(args, "-b", branch)
+	}
+
+	args = append(args, "--depth", "1")
+	args = append(args, "--single-branch", authURL, g.workDir)
+
+	_, err = g.runCommand(args...)
+	return err
+}
+
+// CloneSparse clones only the files matching patterns (gitignore-style,
+// matched at any depth). Blobs outside the patterns are never downloaded.
+func (g *GitShell) CloneSparse(repoURL, branch string, patterns []string) error {
+	authURL, err := g.formatAuthURL(repoURL)
+	if err != nil {
+		return err
+	}
+
+	args := []string{"clone"}
+	if branch != "" {
+		args = append(args, "-b", branch)
+	}
+	args = append(args, "--depth", "1", "--single-branch", "--filter=blob:none", "--no-checkout", authURL, g.workDir)
+	if _, err = g.runCommand(args...); err != nil {
+		return err
+	}
+
+	args = append([]string{"sparse-checkout", "set", "--no-cone"}, patterns...)
+	if _, err = g.runCommand(args...); err != nil {
+		return err
+	}
+
+	_, err = g.runCommand("checkout")
+	return err
+}
