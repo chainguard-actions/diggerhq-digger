@@ -407,7 +407,7 @@ runs:
         echo "TG_PROVIDER_CACHE_DIR=$CACHE_DIR" >> "$GITHUB_ENV"
         echo "TERRAGRUNT_PROVIDER_CACHE_DIR=$CACHE_DIR" >> "$GITHUB_ENV"
 
-    - uses: chainguard-actions/actions-cache/restore@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
+    - uses: chainguard-actions/actions-cache/restore@46c2783c2418d3de33490be27a0d86c6268bc4fd # v6.1.0
       id: restore_cache
       name: restore_cache
       with:
@@ -784,7 +784,7 @@ runs:
         "$BIN"
         echo "✅ digger completed"
 
-    - uses: chainguard-actions/actions-cache/save@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
+    - uses: chainguard-actions/actions-cache/save@46c2783c2418d3de33490be27a0d86c6268bc4fd # v6.1.0
       name: cache-save
       if: ${{ always() && inputs.cache-dependencies == 'true' && steps.restore_cache.outputs.cache-hit != 'true' }}
       with:
