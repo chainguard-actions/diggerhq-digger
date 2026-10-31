@@ -396,7 +396,7 @@ runs:
         echo "TF_PLUGIN_CACHE_DIR=$CACHE_DIR" >> "$GITHUB_ENV"
         echo "TG_PROVIDER_CACHE_DIR=$CACHE_DIR" >> "$GITHUB_ENV"
         echo "TERRAGRUNT_PROVIDER_CACHE_DIR=$CACHE_DIR" >> "$GITHUB_ENV"
-    - uses: chainguard-actions/actions-cache/restore@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
+    - uses: chainguard-actions/actions-cache/restore@46c2783c2418d3de33490be27a0d86c6268bc4fd # v6.1.0
       id: restore_cache
       name: restore_cache
       with:
@@ -662,7 +662,7 @@ runs:
       id: digger-local-run
       shell: bash
       run: "set -euo pipefail\n\ncd $GITHUB_WORKSPACE\n\necho \"\U0001F680 Running digger...\"\nRAW=\"$INPUT_LOCAL_DEV_CLI_PATH\"\n\n# Validate path to prevent command injection\nif [[ \"$RAW\" =~ [^a-zA-Z0-9_./-] ]]; then\n  echo \"❌ Invalid characters in local-dev-cli-path\"\n  exit 1\nfi\n\nif [[ \"$RAW\"  =~ \\.\\. || \"$RAW\" == : || \"$RAW\" != /* ]]; then\n  echo \"❌ traversal/colon/relative not allowed\"; exit 1\nfi        \n\nDIR=$(realpath -- \"$RAW\") || { echo \"❌ not found\"; exit 1; }\n[[ -d \"$DIR\" ]] || { echo \"❌ not a dir\"; exit 1; }        \n\nBIN=\"$DIR/digger\"\n[[ -x \"$BIN\" ]] || { echo \"❌ digger not executable at $BIN\"; exit 1; }        \n\n$BIN\necho \"✅ digger completed\"\n"
-    - uses: chainguard-actions/actions-cache/save@244dfed44d8c4e917b332280fb2c1063eda3d9be # v6.1.0
+    - uses: chainguard-actions/actions-cache/save@46c2783c2418d3de33490be27a0d86c6268bc4fd # v6.1.0
       name: cache-save
       if: ${{ always() && inputs.cache-dependencies == 'true' && steps.restore_cache.outputs.cache-hit != 'true' }}
       with:
