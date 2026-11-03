@@ -363,11 +363,11 @@ runs:
       if: ${{ inputs.setup-google-cloud == 'true' && inputs.google-workload-identity-provider != '' }}
 
     - name: Set up Cloud SDK
-      uses: chainguard-actions/google-github-actions-setup-gcloud@d2ed80f7667e8f3f7c35d7d77974c7fb96bd7100 # v3.0.1
+      uses: chainguard-actions/google-github-actions-setup-gcloud@65e5248a2a4a4ccd8ac5fcbdd9a89c46098d8a65 # v3.0.1
       if: inputs.setup-google-cloud == 'true'
 
     - name: Configure AWS credentials
-      uses: chainguard-actions/aws-actions-configure-aws-credentials@01de3f9498389ba691d1a488e89518397908c9e7 # v6.2.4
+      uses: chainguard-actions/aws-actions-configure-aws-credentials@66b16ed173bf0cd4d4a076ef6ef53e2ada58c48b # v6.2.4
       with:
         aws-access-key-id: ${{ inputs.aws-access-key-id }}
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
@@ -376,7 +376,7 @@ runs:
       if: ${{ inputs.setup-aws == 'true' && inputs.aws-role-to-assume == '' }}
 
     - name: Configure OIDC AWS credentials
-      uses: chainguard-actions/aws-actions-configure-aws-credentials@01de3f9498389ba691d1a488e89518397908c9e7 # v6.2.4
+      uses: chainguard-actions/aws-actions-configure-aws-credentials@66b16ed173bf0cd4d4a076ef6ef53e2ada58c48b # v6.2.4
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
