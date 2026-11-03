@@ -529,7 +529,7 @@ runs:
       if: inputs.setup-checkov == 'true'
 
     - name: setup go
-      uses: chainguard-actions/actions-setup-go@738fd0174f4ff963ac8c2e9dfe83e3191b2777fb # v7.0.0
+      uses: chainguard-actions/actions-setup-go@a23f604fa6ac04bc887d814b1cf828c9fbaf51a7 # v7.0.0
       with:
         go-version-file: "${{ github.action_path }}/cli/go.mod"
         cache: false
@@ -559,7 +559,7 @@ runs:
       if: ${{ steps.determine-binary-mode.outputs.binary-mode != 'prebuilt' }}
 
     - name: Adding required env vars for next step
-      uses: chainguard-actions/actions-github-script@90ea3578c9f973abcd1e50255ba3c1cd19216b51 # v9.0.0
+      uses: chainguard-actions/actions-github-script@5ae8e66bc55d3cfc641b4dd912088e3996b815c2 # v9.0.0
       env:
         github-token: $GITHUB_TOKEN
       with:
