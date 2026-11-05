@@ -338,12 +338,12 @@ runs:
         clean: false
       if: ${{ github.event_name != 'issue_comment' && inputs.configure-checkout == 'true' }}
     - name: Set up Google Auth Using A Service Account Key
-      uses: chainguard-actions/google-github-actions-auth@34dc1f9bc62e08fe45146a02f8a9360dc6faaa79 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@287095bcd24d9367240103631371ef5473d98385 # v3.0.0
       with:
         credentials_json: "${{ inputs.google-auth-credentials }}"
       if: ${{ inputs.setup-google-cloud == 'true' && inputs.google-auth-credentials != '' }}
     - name: Set up Google Auth Using Workload Identity Federation
-      uses: chainguard-actions/google-github-actions-auth@34dc1f9bc62e08fe45146a02f8a9360dc6faaa79 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@287095bcd24d9367240103631371ef5473d98385 # v3.0.0
       with:
         token_format: access_token
         service_account: ${{ inputs.google-service-account }}
@@ -429,7 +429,7 @@ runs:
       if: ${{ inputs.cache-dependencies-s3 == 'true' }}
     # Then terraform setup happens...
     - name: Setup Terraform
-      uses: chainguard-actions/hashicorp-setup-terraform@33b7c5b436b982d28e819b644c84aa9f63c324f4 # v4.0.1
+      uses: chainguard-actions/hashicorp-setup-terraform@01cb3403455c3f892348d536d10e365feaf87e8b # v4.0.1
       with:
         terraform_version: ${{ inputs.terraform-version }}
         terraform_wrapper: false
