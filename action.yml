@@ -348,13 +348,13 @@ runs:
         clean: false
       if: ${{ github.event_name != 'issue_comment' && inputs.configure-checkout == 'true' }}
     - name: Set up Google Auth Using A Service Account Key
-      uses: chainguard-actions/google-github-actions-auth@34dc1f9bc62e08fe45146a02f8a9360dc6faaa79 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@bd3bbd8882ee8311ef35685ad3c341584e23b4d5 # v3.0.0
       with:
         credentials_json: "${{ inputs.google-auth-credentials }}"
       if: ${{ inputs.setup-google-cloud == 'true' && inputs.google-auth-credentials != '' }}
 
     - name: Set up Google Auth Using Workload Identity Federation
-      uses: chainguard-actions/google-github-actions-auth@34dc1f9bc62e08fe45146a02f8a9360dc6faaa79 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@bd3bbd8882ee8311ef35685ad3c341584e23b4d5 # v3.0.0
       with:
         token_format: access_token
         service_account: ${{ inputs.google-service-account }}
@@ -385,7 +385,7 @@ runs:
       if: ${{ inputs.setup-aws == 'true' && inputs.aws-role-to-assume != '' }}
 
     - name: Configure OIDC Azure credentials
-      uses: chainguard-actions/azure-login@da889293ca14040deaa8dcb46d549137b721c063 # v3.1.0
+      uses: chainguard-actions/azure-login@a99caf1f370c0af68e4708f19e05d68e44852e23 # v3.1.0
       with:
         client-id: ${{ inputs.azure-client-id }}
         tenant-id: ${{ inputs.azure-tenant-id }}
@@ -437,7 +437,7 @@ runs:
 
     # Then terraform setup happens...
     - name: Setup Terraform
-      uses: chainguard-actions/hashicorp-setup-terraform@33b7c5b436b982d28e819b644c84aa9f63c324f4 # v4.0.1
+      uses: chainguard-actions/hashicorp-setup-terraform@01cb3403455c3f892348d536d10e365feaf87e8b # v4.0.1
       with:
         terraform_version: ${{ inputs.terraform-version }}
         terraform_wrapper: false
@@ -511,7 +511,7 @@ runs:
       if: inputs.setup-opentofu == 'true'
 
     - name: Setup Pulumi
-      uses: chainguard-actions/pulumi-actions@f185f5bb3a44139ae00d71f6d08f3343c805d8a9 # v7.0.0
+      uses: chainguard-actions/pulumi-actions@d5fe14fd083fba44228d45953df380a4dc94133c # v7.0.0
       with:
         tofu_version: ${{ inputs.pulumi-version }}
       if: inputs.setup-pulumi == 'true'
