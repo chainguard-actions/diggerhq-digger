@@ -502,7 +502,7 @@ runs:
       if: inputs.setup-terragrunt == 'true'
 
     - name: Setup OpenTofu
-      uses: chainguard-actions/opentofu-setup-opentofu@ac06e1598746336e13d8c53951742c7584e9d6a8 # v2.0.2
+      uses: chainguard-actions/opentofu-setup-opentofu@5ea9e1156fc69ade23a5856c32757d15ea19d810 # v2.0.2
       with:
         tofu_version: ${{ inputs.opentofu-version }}
         tofu_wrapper: false
