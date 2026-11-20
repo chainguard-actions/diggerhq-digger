@@ -348,13 +348,13 @@ runs:
         clean: false
       if: ${{ github.event_name != 'issue_comment' && inputs.configure-checkout == 'true' }}
     - name: Set up Google Auth Using A Service Account Key
-      uses: chainguard-actions/google-github-actions-auth@bd3bbd8882ee8311ef35685ad3c341584e23b4d5 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@287095bcd24d9367240103631371ef5473d98385 # v3.0.0
       with:
         credentials_json: "${{ inputs.google-auth-credentials }}"
       if: ${{ inputs.setup-google-cloud == 'true' && inputs.google-auth-credentials != '' }}
 
     - name: Set up Google Auth Using Workload Identity Federation
-      uses: chainguard-actions/google-github-actions-auth@bd3bbd8882ee8311ef35685ad3c341584e23b4d5 # v3.0.0
+      uses: chainguard-actions/google-github-actions-auth@287095bcd24d9367240103631371ef5473d98385 # v3.0.0
       with:
         token_format: access_token
         service_account: ${{ inputs.google-service-account }}
